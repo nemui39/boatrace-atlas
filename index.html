@@ -250,6 +250,33 @@
   }
   .rmsg.win{color:var(--win);} .rmsg.lose{color:var(--lose);}
 
+  /* AI prediction visualizer */
+  .ai-box{border:1px solid var(--line);background:rgba(6,12,20,.45);margin-top:16px;}
+  .ai-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);}
+  .ai-title{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.24em;color:var(--cyan);}
+  #ai-run{background:none;border:1px solid var(--line);color:var(--mut);
+    font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.2em;
+    padding:5px 12px;cursor:pointer;transition:color .15s,border-color .15s;}
+  #ai-run:hover{color:var(--cyan);border-color:var(--cyan);}
+  .ai-body{padding:12px 14px 6px;}
+  .ai-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;cursor:pointer;}
+  .ai-track{flex:1;height:10px;background:rgba(20,36,58,.6);position:relative;}
+  .ai-fill{display:block;height:100%;width:0%;
+    background:linear-gradient(90deg,var(--cyan-deep),var(--cyan));
+    transition:width .9s cubic-bezier(.2,.7,.2,1);}
+  .ai-mkt{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--amber);opacity:.9;}
+  .ai-p{font-family:ui-monospace,Consolas,monospace;font-size:12px;width:52px;text-align:right;
+    color:var(--ink);font-variant-numeric:tabular-nums;}
+  .ai-ev{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:66px;text-align:right;
+    color:var(--mut);font-variant-numeric:tabular-nums;}
+  .ai-ev.pos{color:var(--win);} .ai-ev.neg{color:var(--lose);}
+  .ai-row.focus .ai-p{color:var(--cyan);}
+  .ai-legend{font-size:10px;color:var(--mut2);letter-spacing:.12em;padding:2px 14px 10px;}
+  .ai-legend em{font-style:normal;color:var(--amber);}
+  .ai-log{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--mut);
+    padding:8px 14px 12px;border-top:1px dashed var(--line);min-height:52px;
+    line-height:1.8;letter-spacing:.02em;white-space:pre-wrap;}
+
   @media (max-width:860px){
     #brand h1{font-size:30px;}
     #brand{top:20px;left:20px;}
@@ -327,6 +354,15 @@
             </thead>
             <tbody id="p-tbody"></tbody>
           </table>
+          <div class="ai-box">
+            <div class="ai-head">
+              <span class="ai-title">AI PREDICTION ── 6×5 FEATURES → LINEAR → SOFTMAX</span>
+              <button id="ai-run">再推論</button>
+            </div>
+            <div class="ai-body" id="ai-bars"></div>
+            <div class="ai-legend">■ AI勝率 ── <em>|</em> 市場織込み(オッズ逆算) ── EV = AI勝率 × オッズ ※デモ用重み</div>
+            <div class="ai-log" id="ai-log"></div>
+          </div>
           <div class="bet-row">
             <div class="stake" id="stake">
               <button data-v="100" class="on">100</button>
@@ -977,11 +1013,86 @@ function genRace(v){
     var skill=(cls==="A1"?6.6:cls==="A2"?5.4:cls==="B1"?4.2:3.2)+rng()*1.4;
     var s=Math.exp(skill*.5)*laneF[i]*(0.85+rng()*.3);
     racers.push({lane:i+1,name:nm,cls:cls,win:skill.toFixed(2),
-      st:"."+String(12+Math.floor(rng()*8)),s:s});
+      st:"."+String(12+Math.floor(rng()*8)),motor:(28+rng()*32).toFixed(1),s:s});
   }
   var tot=racers.reduce(function(a,r){return a+r.s;},0);
   racers.forEach(function(r){r.p=r.s/tot;r.odds=Math.max(1.1,Math.round(0.75/r.p*10)/10);});
   return racers;
+}
+
+/* ===== AI prediction: linear model + softmax, computed live in-browser =====
+   weights are DEMO values — the production model is deliberately not embedded */
+var AI_W={win:0.60,st:0.40,cls:0.50,lane:1.05,motor:0.30};
+var AI_CLS={A1:1,A2:0.45,B1:0,B2:-0.5};
+var aiOut=[], aiTypeTimer=null;
+function runAI(v){
+  var laneF=[1+2.4*v.inStr,1.25,1.15,1.05+0.5*(1-v.inStr),0.8+0.3*(1-v.inStr),0.62+0.3*(1-v.inStr)];
+  aiOut=racers.map(function(r,i){
+    var f={
+      win:(parseFloat(r.win)-4.8)/1.6,
+      st:(0.165-parseFloat(r.st))/0.02,
+      cls:AI_CLS[r.cls],
+      lane:Math.log(laneF[i]),
+      motor:(parseFloat(r.motor)-44)/12
+    };
+    var z=0,contrib={};
+    for(var k in AI_W){contrib[k]=AI_W[k]*f[k];z+=contrib[k];}
+    return {z:z,contrib:contrib};
+  });
+  var mx=Math.max.apply(null,aiOut.map(function(o){return o.z;}));
+  var sum=0;
+  aiOut.forEach(function(o){o.e=Math.exp(o.z-mx);sum+=o.e;});
+  aiOut.forEach(function(o,i){
+    o.p=o.e/sum;
+    o.mkt=0.75/racers[i].odds;
+    o.ev=o.p*racers[i].odds;
+  });
+  var box=document.getElementById("ai-bars");
+  box.innerHTML="";
+  var scale=Math.max.apply(null,aiOut.map(function(o){return Math.max(o.p,o.mkt);}))*1.15;
+  aiOut.forEach(function(o,i){
+    var row=document.createElement("div");
+    row.className="ai-row";
+    row.innerHTML='<span class="lane l'+(i+1)+'">'+(i+1)+'</span>'+
+      '<div class="ai-track"><i class="ai-fill"></i><s class="ai-mkt" style="left:'+(o.mkt/scale*100).toFixed(1)+'%"></s></div>'+
+      '<span class="ai-p">'+(o.p*100).toFixed(1)+'%</span>'+
+      '<span class="ai-ev '+(o.ev>=1?"pos":(o.ev<0.6?"neg":""))+'">EV '+o.ev.toFixed(2)+'</span>';
+    row.addEventListener("click",function(){aiFocus(i);});
+    box.appendChild(row);
+    var fill=row.querySelector(".ai-fill");
+    requestAnimationFrame(function(){requestAnimationFrame(function(){
+      fill.style.width=(o.p/scale*100).toFixed(1)+"%";
+    });});
+  });
+  var top=0;
+  aiOut.forEach(function(o,i){if(o.p>aiOut[top].p)top=i;});
+  aiFocus(top);
+}
+function aiFocus(i){
+  var r=racers[i], o=aiOut[i];
+  if(!o)return;
+  var rows=document.getElementById("ai-bars").children;
+  Array.prototype.forEach.call(rows,function(x,xi){x.classList.toggle("focus",xi===i);});
+  var c=o.contrib;
+  var parts=["win","st","cls","lane","motor"].map(function(k){
+    var vv=c[k];return (vv<0?"\u2212":"+")+Math.abs(vv).toFixed(2);
+  });
+  var txt="x"+(i+1)+" = [win "+r.win+" / ST "+r.st+" / "+r.cls+" / course "+(i+1)+" / motor "+r.motor+"]\n"
+    +"z = "+parts.join(" ")+" = "+o.z.toFixed(2)+"   (w\u00b7x: \u52dd\u7387,ST,\u7d1a\u5225,\u30b3\u30fc\u30b9,\u6a5f\u529b)\n"
+    +"softmax(z) = "+(o.p*100).toFixed(1)+"%  vs \u5e02\u5834 "+(o.mkt*100).toFixed(1)+"%  \u2192  EV = "
+    +(o.p*100).toFixed(1)+"% \u00d7 "+r.odds.toFixed(1)+" = "+o.ev.toFixed(2)+(o.ev>=1?"  \u2500\u2500 \u5999\u5473\u3042\u308a":"");
+  typeLog(txt);
+}
+function typeLog(txt){
+  var el=document.getElementById("ai-log");
+  clearInterval(aiTypeTimer);
+  el.textContent="";
+  var i=0;
+  aiTypeTimer=setInterval(function(){
+    i+=3;
+    el.textContent=txt.slice(0,i);
+    if(i>=txt.length)clearInterval(aiTypeTimer);
+  },14);
 }
 
 /* ================= venue panel ================= */
@@ -1015,6 +1126,7 @@ function closeVenue(){
   statusEl.textContent="ALL 24 VENUES ONLINE ── SELECT A VENUE";
 }
 document.getElementById("backbtn").addEventListener("click",closeVenue);
+document.getElementById("ai-run").addEventListener("click",function(){if(currentV)runAI(currentV);});
 
 function buildPanel(v){
   var open=OPEN_IDS.indexOf(v.id)>=0;
@@ -1051,9 +1163,13 @@ function buildPanel(v){
       Array.prototype.forEach.call(tbody.children,function(x,xi){x.classList.toggle("sel",xi===r.lane-1);});
       buyBtn.disabled=false;
       betmsg.textContent=r.lane+"号艇 "+r.name+" ── 単勝 "+r.odds.toFixed(1)+"倍";
+      aiFocus(r.lane-1);
     });
     tbody.appendChild(tr);
   });
+
+  /* AI inference + visualization */
+  runAI(v);
 
   /* track */
   rtrack.innerHTML='<div class="goal"></div>';

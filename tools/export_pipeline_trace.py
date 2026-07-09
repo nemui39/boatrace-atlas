@@ -6,6 +6,7 @@ usage: python3 export_pipeline_trace.py <hd> <engine> <race_id...>
    ex: python3 export_pipeline_trace.py 20260529 t3w6 20260529_15_02 20260529_07_06
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -13,9 +14,13 @@ LIVE = Path("/home/nemui/stack2tan/data/live")
 
 
 def fnum(x, default=None):
+    """'2m' '27.0℃' など単位付き文字列も数値化する"""
+    if x is None:
+        return default
+    s = re.sub(r"[^0-9.\-]", "", str(x))
     try:
-        return float(x)
-    except (TypeError, ValueError):
+        return float(s)
+    except ValueError:
         return default
 
 
@@ -95,7 +100,8 @@ def export_race(hd, engine, race_id, settle_rows):
         },
         "weather": {"desc": w.get("weather"), "wind": fnum(w.get("wind")),
                     "wdir": w.get("winddirec"), "wave": fnum(w.get("wave")),
-                    "temp": fnum(w.get("temp")), "water": fnum(w.get("water"))},
+                    "temp": fnum(w.get("temp")), "water": fnum(w.get("water")),
+                    "mt": w.get("measuretime")},
         "odds": {"n": len(ol), "final": o3["maindata"].get("finalodds"),
                  "top": odds_top},
         "state": {"ts_mu": [r3(x) for x in dbg.get("ts_mu", [])],

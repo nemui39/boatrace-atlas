@@ -452,7 +452,9 @@ function buildMap(){
   maskCv.width=W;maskCv.height=H;
   mctx.fillStyle="#000";
   mctx.strokeStyle="#000";
-  mctx.lineWidth=10;
+  mctx.lineWidth=6;
+  mctx.lineJoin="round";
+  mctx.lineCap="round";
   screenPolys.forEach(function(poly){
     mctx.beginPath();
     mctx.moveTo(poly[0][0],poly[0][1]);
@@ -644,6 +646,7 @@ function render(now){
   var ca=introDone?0.15:0.15*Math.min(1,t/1500);
   ctx.strokeStyle="rgba(140,200,230,"+ca.toFixed(3)+")";
   ctx.lineWidth=1;
+  ctx.lineJoin="round";
   for(var ci=0;ci<screenPolys.length;ci++){
     var cpoly=screenPolys[ci];
     var q0=camPos(cpoly[0][0],cpoly[0][1]);

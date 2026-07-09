@@ -114,20 +114,72 @@
     font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.18em;
     color:var(--mut);line-height:1.9;
   }
-  #engbtn{
+  #engbtn,#pipebtn{
     pointer-events:auto;margin-top:10px;background:none;
     border:1px solid var(--line);color:var(--mut);
     font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.22em;
     padding:5px 12px;cursor:pointer;transition:color .15s,border-color .15s,background .15s;
   }
-  #engbtn:hover{color:var(--cyan);border-color:var(--cyan);}
-  #engbtn.on{color:#06222f;background:var(--cyan);border-color:var(--cyan);}
+  #engbtn:hover,#pipebtn:hover{color:var(--cyan);border-color:var(--cyan);}
+  #engbtn.on,#pipebtn.on{color:#06222f;background:var(--cyan);border-color:var(--cyan);}
   #engineinfo{
     display:none;bottom:130px;left:32px;max-width:440px;
     background:rgba(5,11,19,.9);border:1px solid var(--line);border-left:2px solid var(--cyan);
     padding:12px 16px;font-size:11px;color:var(--mut);line-height:1.9;
   }
   #engineinfo b{color:var(--cyan);letter-spacing:.2em;display:block;margin-bottom:4px;}
+
+  /* ============ real pipeline trace (LIVE OPS) ============ */
+  #pipe{
+    position:absolute;inset:0;z-index:24;overflow-y:auto;
+    background:linear-gradient(100deg, rgba(3,7,12,.97) 0%, rgba(4,10,18,.9) 100%);
+    backdrop-filter:blur(10px);
+    opacity:0;visibility:hidden;transition:opacity .35s ease, visibility .35s;
+  }
+  #pipe.open{opacity:1;visibility:visible;}
+  #pipeclose{
+    position:absolute;top:24px;left:28px;z-index:26;
+    background:none;border:1px solid var(--line);color:var(--mut);
+    font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spacing:.3em;
+    padding:9px 18px;cursor:pointer;
+  }
+  #pipeclose:hover{color:var(--cyan);border-color:var(--cyan);}
+  .pipe-in{max-width:880px;margin:0 auto;padding:76px 32px 60px;}
+  .pipe-eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.34em;color:var(--cyan);margin-bottom:10px;}
+  .pipe-in h2{margin:0 0 8px;font-size:26px;font-weight:900;letter-spacing:.12em;}
+  .pipe-sub{font-size:12.5px;color:var(--mut);line-height:1.9;margin:0 0 18px;}
+  .pipe-races{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;}
+  .pr-chip{
+    background:none;border:1px solid var(--line);color:var(--mut);
+    padding:8px 14px;cursor:pointer;font-size:12.5px;letter-spacing:.06em;font-family:inherit;
+  }
+  .pr-chip em{font-style:normal;font-family:ui-monospace,Consolas,monospace;font-size:11px;margin-left:8px;color:var(--mut2);}
+  .pr-chip em.g{color:var(--win);} .pr-chip em.r{color:var(--lose);}
+  .pr-chip:hover{border-color:var(--cyan);color:var(--ink);}
+  .pr-chip.on{border-color:var(--cyan);color:var(--ink);background:rgba(92,214,255,.08);}
+  .stage{
+    border:1px solid var(--line);border-left:2px solid var(--cyan);
+    background:rgba(6,12,20,.5);margin-bottom:14px;
+    opacity:0;transform:translateY(10px);animation:pipeIn .5s ease forwards;
+  }
+  @keyframes pipeIn{to{opacity:1;transform:none;}}
+  .stg-head{display:flex;gap:14px;align-items:baseline;padding:10px 16px;border-bottom:1px solid var(--line);}
+  .stg-t{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.2em;color:var(--amber);}
+  .stg-title{font-weight:900;font-size:13.5px;letter-spacing:.1em;}
+  .stg-body{padding:12px 16px 14px;font-size:13px;}
+  .pbar{height:8px;background:rgba(20,36,58,.6);}
+  .pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan-deep),var(--cyan));}
+  .pbar i.amb{background:linear-gradient(90deg,#5a3d14,var(--amber));}
+  .rowbar{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .rowbar .pbar{flex:1;}
+  .rowbar .val{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:76px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .kvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:2px 22px;}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;border-bottom:1px dashed rgba(20,36,58,.8);padding:5px 0;color:var(--mut);}
+  .kv b{font-family:ui-monospace,Consolas,monospace;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .g{color:var(--win);} .r{color:var(--lose);} .a{color:var(--amber);}
+  .verdict{font-size:15px;font-weight:900;letter-spacing:.1em;margin-bottom:10px;}
+  .pipe-note{font-size:11px;color:var(--mut2);line-height:1.8;border-top:1px dashed var(--line);padding-top:14px;}
+  .stmini{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.9;}
 
   /* ============ venue panel ============ */
   #panel{
@@ -307,6 +359,7 @@
     <div class="val"><span id="pt">1,000</span><em>PT</em></div>
     <div class="open-count">本日開催 <span id="opencount">8</span>場</div>
     <button id="engbtn">⚙ ENGINE VIEW [E]</button>
+    <button id="pipebtn">▶ LIVE OPS [P]</button>
   </div>
 
   <div class="hud" id="status"><span id="statustext">INITIALIZING ATLAS</span><span class="cursor"></span></div>
@@ -328,6 +381,20 @@
   <div id="venuebar"></div>
 
   <div id="toast"></div>
+
+  <section id="pipe">
+    <button id="pipeclose">← MAP</button>
+    <div class="pipe-in">
+      <div class="pipe-eyebrow">STACK2TAN ── REAL PIPELINE TRACE</div>
+      <h2>実運用パイプライン・トレース</h2>
+      <p class="pipe-sub">本番で毎日走っている競艇3連単予測システムの実ログ(2026-05-29 / エンジン t3w6)。
+        出走表の取得からモデル推論・EVゲート・ベット・精算まで、以下の数値はすべて当日の生データそのまま。</p>
+      <div class="pipe-races" id="pipe-races"></div>
+      <div id="pipe-stages"></div>
+      <p class="pipe-note">※ モデル本体・特徴量定義・重みは非公開。表示しているのは実運用が各レースで記録した診断ログのみ。
+        TrueSkill=選手・コース別レーティング / s値=艇別強度スコア / EV=モデル確率×オッズ。</p>
+    </div>
+  </section>
 
   <section id="panel">
     <button id="backbtn">← MAP</button>
@@ -952,8 +1019,9 @@ canvas.addEventListener("click",function(e){
   if(v)enterVenue(v);
 });
 window.addEventListener("keydown",function(e){
-  if(e.key==="Escape"&&panelOpen)closeVenue();
-  if((e.key==="e"||e.key==="E")&&!panelOpen)setEngine(!engineView);
+  if(e.key==="Escape"){if(pipeOpen){closePipe();return;}if(panelOpen)closeVenue();return;}
+  if((e.key==="e"||e.key==="E")&&!panelOpen&&!pipeOpen)setEngine(!engineView);
+  if((e.key==="p"||e.key==="P")&&!panelOpen)togglePipe();
 });
 var resizeTm=null;
 window.addEventListener("resize",function(){
@@ -1253,6 +1321,134 @@ buyBtn.addEventListener("click",function(){
   boats.forEach(function(b){b.style.left="0px";});
   requestAnimationFrame(step);
 });
+
+/* ================= real pipeline trace (stack2tan live logs) ================= */
+var TRACES=[{"id":"20260529_15_02","date":"20260529","venue":"丸亀","jcd":"15","rno":2,"ktitle":"第１６回琴参バスカップ","grade":"Ｇ３","deadline":"15:50","engine":"t3w6","t_racecard":"May 29, 2026 07:35:58","t_before":"May 29, 2026 15:47:09","t_odds":"15:45","racers":[{"no":1,"name":"新出  浩司","cls":"B1","zwin":4.3,"motor2":32.76,"avest":0.14},{"no":2,"name":"岡部  大輝","cls":"B1","zwin":6.02,"motor2":43.03,"avest":0.17},{"no":3,"name":"大塚  雅治","cls":"B1","zwin":4.58,"motor2":34.73,"avest":0.17},{"no":4,"name":"古田  祐貴","cls":"A2","zwin":5.08,"motor2":34.29,"avest":0.14},{"no":5,"name":"牧山  敦也","cls":"B1","zwin":4.91,"motor2":39.88,"avest":0.17},{"no":6,"name":"伊藤  誠二","cls":"A2","zwin":6.09,"motor2":37.36,"avest":0.14}],"tenji":{"ex":[6.75,6.72,6.79,6.82,6.82,6.71],"tilt":[-0.5,-0.5,-0.5,0.0,0.0,-0.5],"st":[{"c":"1","no":1,"st":".36"},{"c":"2","no":6,"st":".18"},{"c":"3","no":2,"st":".20"},{"c":"4","no":3,"st":".05"},{"c":"5","no":4,"st":".16"},{"c":"6","no":5,"st":".09"}]},"weather":{"desc":"晴","wind":null,"wdir":"13","wave":null,"temp":null,"water":null},"odds":{"n":120,"final":"0","top":[{"k":"124","o":21.2},{"k":"126","o":23.7},{"k":"123","o":29.4},{"k":"142","o":30.5},{"k":"134","o":32.5}]},"state":{"ts_mu":[22.53,25.2,23.04,24.24,24.18,25.32],"ts_sigma":[0.64,0.65,0.64,0.65,0.64,0.65],"wwr":[0.537,0.1275,0.1078,0.067,0.0282,0.1459],"wind_bin":4},"model":{"s":[0.497,0.7491,0.4703,0.5164,0.3123,0.484],"top5":[{"k":"124","p":0.0335},{"k":"126","p":0.0318},{"k":"123","p":0.0285},{"k":"264","p":0.0256},{"k":"142","p":0.0241}]},"gate":{"max_ev":1.4609,"kumi":"423","odds":148.8,"ev_med":0.6852,"ev_p90":0.9699,"n_band":68,"n_ev11":6,"n_ev12":4,"verdict":"bet"},"bets":[{"k":"423","o":148.8,"pm":0.0098,"pmkt":0.005,"ev":1.4609,"edge":0.9493,"stake":100,"hit":false,"pnl":-100},{"k":"465","o":120.7,"pm":0.0108,"pmkt":0.0062,"ev":1.3089,"edge":0.7466,"stake":100,"hit":true,"pnl":18070},{"k":"342","o":115.2,"pm":0.0106,"pmkt":0.0065,"ev":1.2242,"edge":0.6335,"stake":100,"hit":false,"pnl":-100}],"result":{"win":"4-6-5","div":18170,"stake":300,"payout":18170,"pnl":17870}},{"id":"20260529_07_06","date":"20260529","venue":"蒲郡","jcd":"07","rno":6,"ktitle":"サッポロビールカップ","grade":"一般","deadline":"18:08","engine":"t3w6","t_racecard":"May 29, 2026 07:35:25","t_before":"May 29, 2026 18:05:09","t_odds":"18:03","racers":[{"no":1,"name":"野末  智一","cls":"A2","zwin":6.27,"motor2":45.78,"avest":0.19},{"no":2,"name":"佐藤   悠","cls":"A2","zwin":5.86,"motor2":32.61,"avest":0.14},{"no":3,"name":"藤井  公人","cls":"B2","zwin":5.55,"motor2":33.95,"avest":0.16},{"no":4,"name":"高野  哲史","cls":"A1","zwin":6.62,"motor2":37.58,"avest":0.16},{"no":5,"name":"上村  宏太","cls":"B1","zwin":4.19,"motor2":38.54,"avest":0.19},{"no":6,"name":"熊本  英一","cls":"B1","zwin":3.86,"motor2":29.86,"avest":0.22}],"tenji":{"ex":[6.69,6.6,6.66,6.67,6.63,6.78],"tilt":[0.0,0.0,0.0,0.0,0.0,0.0],"st":[{"c":"1","no":1,"st":".11"},{"c":"2","no":2,"st":".02"},{"c":"3","no":3,"st":"F.01"},{"c":"4","no":4,"st":"F.07"},{"c":"5","no":5,"st":".14"},{"c":"6","no":6,"st":"F.12"}]},"weather":{"desc":"晴","wind":null,"wdir":"01","wave":null,"temp":null,"water":null},"odds":{"n":120,"final":"0","top":[{"k":"142","o":6.9},{"k":"124","o":7.7},{"k":"143","o":15.9},{"k":"412","o":17.0},{"k":"214","o":17.7}]},"state":{"ts_mu":[25.8,25.33,23.52,27.64,21.83,20.69],"ts_sigma":[0.64,0.65,0.65,0.66,0.65,0.66],"wwr":[0.5613,0.1322,0.1307,0.1066,0.0618,0.0211],"wind_bin":1},"model":{"s":[0.8875,0.6783,0.587,0.7359,0.2425,0.065],"top5":[{"k":"124","p":0.13},{"k":"142","p":0.1205},{"k":"143","p":0.0722},{"k":"123","p":0.061},{"k":"134","p":0.0529}]},"gate":{"max_ev":1.2176,"kumi":"314","odds":131.3,"ev_med":0.4378,"ev_p90":0.7751,"n_band":45,"n_ev11":5,"n_ev12":1,"verdict":"bet"},"bets":[{"k":"314","o":131.3,"pm":0.0093,"pmkt":0.0057,"ev":1.2176,"edge":0.6288,"stake":100,"hit":true,"pnl":9110}],"result":{"win":"3-1-4","div":9210,"stake":100,"payout":9210,"pnl":9110}},{"id":"20260529_02_07","date":"20260529","venue":"戸田","jcd":"02","rno":7,"ktitle":"本命バトル祭","grade":"一般","deadline":"13:45","engine":"t3w6","t_racecard":"May 29, 2026 07:35:06","t_before":"May 29, 2026 13:42:10","t_odds":"13:41","racers":[{"no":1,"name":"尾形  栄治","cls":"B1","zwin":4.53,"motor2":38.3,"avest":0.2},{"no":2,"name":"青木  玄太","cls":"A1","zwin":7.18,"motor2":35.16,"avest":0.17},{"no":3,"name":"赤峰  和也","cls":"B1","zwin":3.76,"motor2":36.36,"avest":0.17},{"no":4,"name":"坪井  爽佑","cls":"B1","zwin":4.11,"motor2":34.52,"avest":0.18},{"no":5,"name":"森下   勇","cls":"B1","zwin":3.69,"motor2":28.22,"avest":0.18},{"no":6,"name":"倉富  大誠","cls":"B1","zwin":4.63,"motor2":28.96,"avest":0.17}],"tenji":{"ex":[6.89,6.86,6.96,6.87,6.95,7.04],"tilt":[0.0,0.5,-0.5,0.0,-0.5,-0.5],"st":[{"c":"1","no":1,"st":".01"},{"c":"2","no":2,"st":".18"},{"c":"3","no":3,"st":".13"},{"c":"4","no":4,"st":".17"},{"c":"5","no":5,"st":".05"},{"c":"6","no":6,"st":".09"}]},"weather":{"desc":"晴","wind":null,"wdir":"06","wave":null,"temp":null,"water":null},"odds":{"n":120,"final":"0","top":[{"k":"124","o":8.3},{"k":"214","o":9.6},{"k":"123","o":11.9},{"k":"213","o":13.7},{"k":"125","o":15.0}]},"state":{"ts_mu":[22.73,28.89,20.45,21.31,20.19,22.66],"ts_sigma":[0.65,0.66,0.66,0.65,0.65,0.65],"wwr":[0.4192,0.1868,0.1516,0.1579,0.0708,0.0288],"wind_bin":2},"model":{"s":[0.743,0.9229,0.3812,0.4546,0.2053,0.3147],"top5":[{"k":"124","p":0.1167},{"k":"214","p":0.0833},{"k":"213","p":0.0748},{"k":"123","p":0.073},{"k":"126","p":0.0637}]},"gate":{"max_ev":1.2261,"kumi":"426","odds":119.7,"ev_med":0.5234,"ev_p90":0.8412,"n_band":42,"n_ev11":1,"n_ev12":1,"verdict":"bet"},"bets":[{"k":"426","o":119.7,"pm":0.0102,"pmkt":0.0063,"ev":1.2261,"edge":0.6379,"stake":100,"hit":false,"pnl":-100}],"result":{"win":"2-1-6","div":2260,"stake":100,"payout":0,"pnl":-100}},{"id":"20260529_06_11","date":"20260529","venue":"浜名湖","jcd":"06","rno":11,"ktitle":"第５３回ボートレースオールスター","grade":"ＳＧ","deadline":"15:57","engine":"t3w6","t_racecard":"May 29, 2026 07:35:21","t_before":"May 29, 2026 15:54:09","t_odds":"15:53","racers":[{"no":1,"name":"茅原  悠紀","cls":"A1","zwin":8.06,"motor2":33.33,"avest":0.12},{"no":2,"name":"佐藤   翼","cls":"A1","zwin":6.77,"motor2":45.45,"avest":0.13},{"no":3,"name":"平本  真之","cls":"A1","zwin":7.53,"motor2":47.22,"avest":0.13},{"no":4,"name":"丸野  一樹","cls":"A1","zwin":6.7,"motor2":26.92,"avest":0.15},{"no":5,"name":"磯部   誠","cls":"A1","zwin":7.15,"motor2":34.38,"avest":0.12},{"no":6,"name":"定松  勇樹","cls":"A1","zwin":7.93,"motor2":26.92,"avest":0.14}],"tenji":{"ex":[6.76,6.69,6.77,6.72,6.76,6.72],"tilt":[-0.5,-0.5,-0.5,0.0,-0.5,0.0],"st":[{"c":"1","no":1,"st":"F.02"},{"c":"2","no":2,"st":".05"},{"c":"3","no":3,"st":".19"},{"c":"4","no":4,"st":".05"},{"c":"5","no":6,"st":".03"},{"c":"6","no":5,"st":".03"}]},"weather":{"desc":"晴","wind":null,"wdir":"01","wave":null,"temp":null,"water":null},"odds":{"n":120,"final":"0","top":[{"k":"124","o":10.9},{"k":"123","o":13.8},{"k":"142","o":14.4},{"k":"134","o":15.4},{"k":"146","o":18.9}]},"state":{"ts_mu":[30.29,29.25,29.59,28.96,29.33,30.05],"ts_sigma":[0.65,0.65,0.66,0.65,0.65,0.66],"wwr":[0.537,0.1573,0.1366,0.1019,0.0236,0.0609],"wind_bin":1},"model":{"s":[0.8713,0.6969,0.5947,0.4306,0.1854,0.3014],"top5":[{"k":"123","p":0.1094},{"k":"124","p":0.0806},{"k":"132","p":0.0636},{"k":"142","p":0.0562},{"k":"126","p":0.0491}]},"gate":{"max_ev":1.5095,"kumi":"123","odds":13.8,"ev_med":0.5625,"ev_p90":0.846,"n_band":52,"n_ev11":3,"n_ev12":2,"verdict":"outside_odds_bands"},"bets":[],"result":{"win":null,"div":null,"stake":null,"payout":null,"pnl":null}}];
+var GATE_JP={outside_odds_bands:"最大EVの買い目がオッズ帯域外",no_ev:"EV基準未達"};
+var pipeOpen=false,pipeCur=0;
+var pipeEl=document.getElementById("pipe");
+var pipebtn=document.getElementById("pipebtn");
+function ttime(s){var m=/(\d{1,2}:\d{2}(:\d{2})?)/.exec(s||"");return m?m[1]:(s||"--");}
+function fmtK(k){return String(k).split("").join("-");}
+function yen(n){return (n>=0?"+":"\u2212")+Math.abs(n).toLocaleString("ja-JP")+"\u5186";}
+function pbar(pct,amb){return '<div class="pbar"><i class="'+(amb?"amb":"")+'" style="width:'+Math.max(2,Math.min(100,pct)).toFixed(1)+'%"></i></div>';}
+function rowbar(chip,pct,val,amb){return '<div class="rowbar">'+chip+pbar(pct,amb)+'<span class="val">'+val+'</span></div>';}
+function laneChip(i){return '<span class="lane l'+i+'">'+i+'</span>';}
+function stg(t,title,body){return '<div class="stage"><div class="stg-head"><span class="stg-t">'+t+'</span><span class="stg-title">'+title+'</span></div><div class="stg-body">'+body+'</div></div>';}
+function kv(k,v){return '<div class="kv"><span>'+k+'</span><b>'+v+'</b></div>';}
+function renderPipeRaces(){
+  var box=document.getElementById("pipe-races");box.innerHTML="";
+  TRACES.forEach(function(tr,i){
+    var b=document.createElement("button");
+    b.className="pr-chip"+(i===pipeCur?" on":"");
+    var res=tr.bets.length?
+      '<em class="'+(tr.result.pnl>0?"g":"r")+'">'+yen(tr.result.pnl)+'</em>':
+      '<em>\u898b\u9001\u308a</em>';
+    b.innerHTML=tr.venue+" "+tr.rno+"R"+res;
+    b.addEventListener("click",function(){pipeCur=i;renderPipe();});
+    box.appendChild(b);
+  });
+}
+function renderPipe(){
+  renderPipeRaces();
+  var tr=TRACES[pipeCur],S=[];
+  /* 1: racecard */
+  var rows=tr.racers.map(function(r,i){
+    return "<tr><td>"+laneChip(i+1)+"</td><td>"+r.name+'<span class="kcls">'+r.cls+"</span></td>"+
+      '<td class="num r">'+(r.zwin!=null?r.zwin.toFixed(2):"-")+"</td>"+
+      '<td class="num r">'+(r.motor2!=null?r.motor2.toFixed(1)+"%":"-")+"</td>"+
+      '<td class="num r">'+(r.avest!=null?r.avest.toFixed(2):"-")+"</td></tr>";
+  }).join("");
+  S.push(stg(ttime(tr.t_racecard),"\u51fa\u8d70\u8868\u53d6\u5f97 \u2500 racecard",
+    '<table class="sh"><thead><tr><th>\u67a0</th><th>\u9078\u624b</th><th class="r">\u52dd\u7387</th><th class="r">\u30e2\u30fc\u30bf\u30fc2\u7387</th><th class="r">\u5e73\u5747ST</th></tr></thead><tbody>'+rows+"</tbody></table>"));
+  /* 2: beforeinfo */
+  var exv=tr.tenji.ex.filter(function(x){return x!=null;});
+  var exmin=Math.min.apply(null,exv), exmax=Math.max.apply(null,exv);
+  var exb=tr.tenji.ex.map(function(x,i){
+    if(x==null)return rowbar(laneChip(i+1),0,"-");
+    var pct=exmax>exmin?((exmax-x)/(exmax-exmin))*88+12:50;
+    return rowbar(laneChip(i+1),pct,x.toFixed(2));
+  }).join("");
+  var stline='\u5c55\u793a\u9032\u5165 '+tr.tenji.st.map(function(x){return x.no;}).join("-")+
+    '\u3000\uff0f\u3000\u5c55\u793aST '+tr.tenji.st.map(function(x){return x.no+":"+(x.st||"-");}).join(" ");
+  var wt=tr.weather;
+  var wtags='<span class="tag">'+(wt.desc||"-")+'</span><span class="tag">\u98a8 '+wt.wind+'m \u30b3\u30fc\u30c9'+wt.wdir+'</span><span class="tag">\u6ce2 '+wt.wave+'cm</span><span class="tag">\u6c17\u6e29 '+wt.temp+'\u2103</span><span class="tag">\u6c34\u6e29 '+wt.water+'\u2103</span>';
+  S.push(stg(ttime(tr.t_before),"\u76f4\u524d\u60c5\u5831 \u2500 \u5c55\u793a\u30bf\u30a4\u30e0\u30fb\u6c17\u8c61",
+    exb+'<div class="stmini">'+stline+'</div><div class="v-chips" style="margin:10px 0 0">'+wtags+"</div>"));
+  /* 3: odds */
+  var ot=tr.odds.top.map(function(o){return kv(fmtK(o.k),o.o.toFixed(1)+"\u500d");}).join("");
+  S.push(stg(tr.t_odds,"\u5e02\u5834\u30aa\u30c3\u30ba\u53d6\u5f97 \u2500 3\u9023\u5358120\u901a\u308a(\u975e\u78ba\u5b9a)",
+    '<div class="kvgrid">'+ot+kv("\u53d6\u5f97\u70b9\u6570",tr.odds.n+"\u901a\u308a")+"</div>"));
+  /* 4: state */
+  var mus=tr.state.ts_mu, mumin=Math.min.apply(null,mus), mumax=Math.max.apply(null,mus);
+  var mub=mus.map(function(m,i){
+    var pct=mumax>mumin?((m-mumin)/(mumax-mumin))*88+12:50;
+    return rowbar(laneChip(i+1),pct,m.toFixed(1)+" \u00b1"+tr.state.ts_sigma[i].toFixed(2));
+  }).join("");
+  var wwb=tr.state.wwr.map(function(w2,i){return rowbar(laneChip(i+1),w2*100,(w2*100).toFixed(1)+"%",true);}).join("");
+  S.push(stg("STATE","\u72b6\u614b\u91cf\u30eb\u30c3\u30af\u30a2\u30c3\u30d7 \u2500 TrueSkill / \u5929\u5019\u5225\u52dd\u7387",
+    '<div class="stmini" style="margin:0 0 6px">TrueSkill \u03bc\u00b1\u03c3 (\u9078\u624b\u00d7\u30b3\u30fc\u30b9)</div>'+mub+
+    '<div class="stmini" style="margin:10px 0 6px">weather_course \u52dd\u7387 (\u3053\u306e\u98a8\u5411\u00d7\u30b3\u30fc\u30b9\u3001wind_bin='+tr.state.wind_bin+")</div>"+wwb));
+  /* 5: model */
+  var smax=Math.max.apply(null,tr.model.s);
+  var sb=tr.model.s.map(function(sv,i){return rowbar(laneChip(i+1),sv/smax*100,sv.toFixed(3));}).join("");
+  var pmax=tr.model.top5.length?tr.model.top5[0].p:1;
+  var tb=tr.model.top5.map(function(t5){
+    return rowbar('<span class="val" style="width:52px;text-align:left">'+fmtK(t5.k)+"</span>",t5.p/pmax*100,(t5.p*100).toFixed(1)+"%");
+  }).join("");
+  S.push(stg("INFER","\u30e2\u30c7\u30eb\u63a8\u8ad6 \u2500 \u8247\u5225\u5f37\u5ea6 \u2192 120\u30af\u30e9\u30b9\u78ba\u7387",
+    '<div class="stmini" style="margin:0 0 6px">s\u5024 (win6 \u8247\u5225\u5f37\u5ea6)</div>'+sb+
+    '<div class="stmini" style="margin:10px 0 6px">p_final \u4e0a\u4f4d5 (3\u9023\u5358120\u901a\u308a\u306e\u30e2\u30c7\u30eb\u78ba\u7387)</div>'+tb));
+  /* 6: EV gate */
+  var g=tr.gate;
+  var vh=tr.bets.length?
+    '<div class="verdict g">BET \u2500 EV\u30b2\u30fc\u30c8\u901a\u904e ('+tr.bets.length+'\u70b9)</div>':
+    '<div class="verdict a">\u898b\u9001\u308a \u2500 '+(GATE_JP[g.verdict]||g.verdict)+"</div>";
+  S.push(stg("GATE","EV\u30b2\u30fc\u30c8 \u2500 \u671f\u5f85\u5024\u3068\u30aa\u30c3\u30ba\u5e2f\u57df\u306e\u5224\u5b9a",
+    vh+'<div class="kvgrid">'+
+    kv("\u6700\u5927EV",g.max_ev+" @"+fmtK(g.kumi))+
+    kv("\u305d\u306e\u30aa\u30c3\u30ba",g.odds+"\u500d")+
+    kv("EV\u4e2d\u592e\u5024/120",g.ev_med)+
+    kv("EV p90",g.ev_p90)+
+    kv("\u5e2f\u57df\u5185\u30aa\u30c3\u30ba\u6570",g.n_band)+
+    kv("EV>1.1 / >1.2",g.n_ev11+" / "+g.n_ev12)+
+    "</div>"));
+  /* 7: bets */
+  if(tr.bets.length){
+    var bh=tr.bets.map(function(b){
+      var res=b.hit===true?'<span class="g">\u7684\u4e2d</span>':(b.hit===false?'<span class="r">\u5916\u308c</span>':"-");
+      return "<tr><td class='num'>"+fmtK(b.k)+"</td><td class='num r'>"+b.o.toFixed(1)+"</td>"+
+        "<td class='num r'>"+(b.pm*100).toFixed(2)+"%</td><td class='num r'>"+(b.pmkt*100).toFixed(2)+"%</td>"+
+        "<td class='num r'>"+b.ev.toFixed(2)+"</td><td class='num r'>\u00a5"+b.stake+"</td><td class='r'>"+res+"</td></tr>";
+    }).join("");
+    S.push(stg("BET","\u30d9\u30c3\u30c8\u5b9f\u884c \u2500 bet-server\u9001\u4fe1",
+      '<table class="sh"><thead><tr><th>\u8cb7\u3044\u76ee</th><th class="r">\u30aa\u30c3\u30ba</th><th class="r">\u30e2\u30c7\u30eb\u78ba\u7387</th><th class="r">\u5e02\u5834\u78ba\u7387</th><th class="r">EV</th><th class="r">\u8ced\u91d1</th><th class="r">\u7d50\u679c</th></tr></thead><tbody>'+bh+"</tbody></table>"));
+  }
+  /* 8: result */
+  var rs=tr.result;
+  var rb;
+  if(tr.bets.length){
+    rb='<div class="verdict '+(rs.pnl>0?"g":"r")+'">'+yen(rs.pnl)+"</div>"+
+      '<div class="kvgrid">'+
+      kv("3\u9023\u5358\u7d50\u679c",fmtK(rs.win))+
+      kv("\u914d\u5f53(100\u5186)","\u00a5"+(rs.div||0).toLocaleString("ja-JP"))+
+      kv("\u6295\u4e0b","\u00a5"+rs.stake)+
+      kv("\u6255\u623b","\u00a5"+rs.payout)+"</div>";
+  }else{
+    rb='<div class="stmini">\u898b\u9001\u308a\u306e\u305f\u3081\u53ce\u652f\u306a\u3057\u3002EV\u30b2\u30fc\u30c8\u304c\u8cc7\u91d1\u3092\u5b88\u3063\u305f\u30b1\u30fc\u30b9\u3002</div>';
+  }
+  S.push(stg("SETTLE","\u7d50\u679c\u30fb\u7cbe\u7b97",rb));
+  var box=document.getElementById("pipe-stages");
+  box.innerHTML=S.join("");
+  Array.prototype.forEach.call(box.querySelectorAll(".stage"),function(el,i){
+    el.style.animationDelay=(i*110)+"ms";
+  });
+}
+function openPipe(){pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");renderPipe();}
+function closePipe(){pipeOpen=false;pipeEl.classList.remove("open");pipebtn.classList.remove("on");}
+function togglePipe(){pipeOpen?closePipe():openPipe();}
+pipebtn.addEventListener("click",togglePipe);
+document.getElementById("pipeclose").addEventListener("click",closePipe);
 
 /* ================= boot ================= */
 buildMap();seedInk();resetCamTarget();

@@ -371,11 +371,11 @@ function makeSprite(color){
   var c=document.createElement("canvas");c.width=c.height=32;
   var g=c.getContext("2d");
   var grad=g.createRadialGradient(16,16,0,16,16,16);
-  grad.addColorStop(0,color);grad.addColorStop(0.55,color);grad.addColorStop(1,"rgba(0,0,0,0)");
+  grad.addColorStop(0,color);grad.addColorStop(0.8,color);grad.addColorStop(1,"rgba(0,0,0,0)");
   g.fillStyle=grad;g.fillRect(0,0,32,32);
   return c;
 }
-var sprFar=makeSprite("#4a6a8a"), sprNear=makeSprite("#6fc4e8");
+var sprFar=makeSprite("#5b82a8"), sprNear=makeSprite("#7fc9e8");
 
 function proj(lon,lat){
   var x=(lon-135)*KLON, y=-(lat-38);
@@ -475,7 +475,7 @@ var LUTr=new Uint8Array(256),LUTg=new Uint8Array(256),LUTb=new Uint8Array(256),L
   for(var i=0;i<256;i++){
     var t=i/255;
     LUTr[i]=110+120*t; LUTg[i]=165+70*t; LUTb[i]=190+60*t;
-    LUTa[i]=Math.round(Math.pow(t,0.8)*140);
+    LUTa[i]=Math.round(Math.pow(t,0.8)*165);
   }
 })();
 var inkA=document.createElement("canvas"), ictxA=inkA.getContext("2d");
@@ -551,21 +551,21 @@ function drawInk(){
         if(gx<1||gx>FW||gy<1||gy>FH)continue;
         var id0=FI(gx,gy);
         if(fsolid[id0])continue;
-        var fall=Math.exp(-(ox*ox+oy*oy)/2.6);
-        fu[id0]+=q.dx*0.055*fall;
-        fv[id0]+=q.dy*0.055*fall;
-        fd[id0]+=0.05*fall*(0.4+pw*0.05);
-        if(fd[id0]>1.35)fd[id0]=1.35;
+        var fall=Math.exp(-(ox*ox+oy*oy)/3.4);
+        fu[id0]+=q.dx*0.10*fall;
+        fv[id0]+=q.dy*0.10*fall;
+        fd[id0]+=0.085*fall*(0.4+pw*0.05);
+        if(fd[id0]>1.6)fd[id0]=1.6;
       }
     }
   }
   /* decay + clamp */
   for(var i=0;i<FSZ;i++){
-    var uu=fu[i]*0.996, vv=fv[i]*0.996;
-    if(uu>3.5)uu=3.5; if(uu<-3.5)uu=-3.5;
-    if(vv>3.5)vv=3.5; if(vv<-3.5)vv=-3.5;
+    var uu=fu[i]*0.998, vv=fv[i]*0.998;
+    if(uu>5)uu=5; if(uu<-5)uu=-5;
+    if(vv>5)vv=5; if(vv<-5)vv=-5;
     fu[i]=uu; fv[i]=vv;
-    fd[i]*=0.986;
+    fd[i]*=0.9885;
   }
   /* self-advect velocity, keep it divergence-free, then carry the dye */
   fu0.set(fu);fv0.set(fv);
@@ -627,6 +627,18 @@ function render(now){
     if(fa>0){ctx.globalAlpha=fa;ctx.drawImage(inkA,0,0,W,H);ctx.globalAlpha=1;}
   }
 
+  /* faint coastline to sharpen the silhouette */
+  var ca=introDone?0.15:0.15*Math.min(1,t/1500);
+  ctx.strokeStyle="rgba(140,200,230,"+ca.toFixed(3)+")";
+  ctx.lineWidth=1;
+  for(var ci=0;ci<screenPolys.length;ci++){
+    var cpoly=screenPolys[ci];
+    var q0=camPos(cpoly[0][0],cpoly[0][1]);
+    ctx.beginPath();ctx.moveTo(q0[0],q0[1]);
+    for(var cj=1;cj<cpoly.length;cj++){var q=camPos(cpoly[cj][0],cpoly[cj][1]);ctx.lineTo(q[0],q[1]);}
+    ctx.closePath();ctx.stroke();
+  }
+
   /* land dots */
   for(var i=0;i<dots.length;i++){
     var dt=dots[i];
@@ -637,9 +649,9 @@ function render(now){
       if(a<=0)continue;
     }else a=1;
     /* land is deliberately still and dark: no flicker, nothing moving on or under it */
-    var base=0.19+dt.near*0.18;
+    var base=0.55+dt.near*0.15;
     var p=camPos(dt.x,dt.y);
-    var r=(1.05+dt.near*0.5)*Math.min(cam.s,3.0);
+    var r=(1.3+dt.near*0.35)*Math.min(cam.s,3.0);
     ctx.globalAlpha=base*a;
     ctx.drawImage(dt.near>0.35?sprNear:sprFar,p[0]-r,p[1]-r,r*2,r*2);
   }

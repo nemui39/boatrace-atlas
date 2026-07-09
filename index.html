@@ -386,7 +386,7 @@ function proj(lon,lat){
   var x=(lon-135)*KLON, y=-(lat-38);
   return [x*COS-y*SIN, x*SIN+y*COS];
 }
-var screenPolys=[], dots=[], regionPts=[], routePts=[];
+var screenPolys=[], dots=[], regionPts=[];
 var minX,maxX;
 
 function buildMap(){
@@ -412,7 +412,6 @@ function buildMap(){
   screenPolys=raw.map(function(poly){return poly.map(toScr);});
   VENUES.forEach(function(v){var p=toScr(proj(v.lon,v.lat));v.sx=p[0];v.sy=p[1];});
   regionPts=REGIONS.map(function(r){var p=toScr(proj(r.lon,r.lat));return{t:r.t,x:p[0],y:p[1]};});
-  routePts=VENUES.map(function(v){return[v.sx,v.sy];});
 
   /* rasterize dots on a screen-space grid */
   dots=[];
@@ -437,20 +436,21 @@ function buildMap(){
           var dx=gx-VENUES[k].sx, dy=gy-VENUES[k].sy;
           var d=dx*dx+dy*dy; if(d<nd)nd=d;
         }
-        dots.push({x:gx,y:gy,ph:Math.random()*6.28,sp:.5+Math.random(),
-          near:Math.max(0,1-Math.sqrt(nd)/130)});
+        dots.push({x:gx,y:gy,near:Math.max(0,1-Math.sqrt(nd)/130)});
         minX=Math.min(minX,gx);maxX=Math.max(maxX,gx);
       }
     }
   }
-  /* land mask: knocks the sea-flow trails out over land for a crisp coastline */
+  /* land mask: keeps the ink strictly off the islands (with a small coastal buffer) */
   maskCv.width=W;maskCv.height=H;
   mctx.fillStyle="#000";
+  mctx.strokeStyle="#000";
+  mctx.lineWidth=10;
   screenPolys.forEach(function(poly){
     mctx.beginPath();
     mctx.moveTo(poly[0][0],poly[0][1]);
     for(var i=1;i<poly.length;i++)mctx.lineTo(poly[i][0],poly[i][1]);
-    mctx.closePath();mctx.fill();
+    mctx.closePath();mctx.fill();mctx.stroke();
   });
 }
 function pip(x,y,poly){
@@ -462,10 +462,16 @@ function pip(x,y,poly){
   return c;
 }
 
-/* ===== sea flow layer: fBm(fractal) noise streamlines with fading trails ===== */
-var flowCv=document.createElement("canvas"), fctx=flowCv.getContext("2d");
+/* ===== sumi-e ink layer: ink-in-water around the cursor =====
+   half-res accumulation canvas; every frame it is re-drawn onto its twin
+   through a slight blur + alpha fade, so strokes bleed outward and dissolve
+   like ink dropped in water. brush agents wander with fBm noise. */
+var IS=0.5;
+var inkA=document.createElement("canvas"), inkB=document.createElement("canvas");
+var ictxA=inkA.getContext("2d"), ictxB=inkB.getContext("2d");
 var maskCv=document.createElement("canvas"), mctx=maskCv.getContext("2d");
-var flows=[];
+var maskHalf=document.createElement("canvas"), mhctx=maskHalf.getContext("2d");
+var inkAgents=[], inkQueue=[];
 var PERM=(function(){var r=mulberry32(1234),p=new Uint8Array(512);for(var i=0;i<512;i++)p[i]=Math.floor(r()*256);return p;})();
 function vnoise(x,y){
   var xi=Math.floor(x),yi=Math.floor(y);
@@ -481,39 +487,87 @@ function fbm(x,y){
   for(var o=0;o<4;o++){s+=amp*vnoise(x*f,y*f);amp*=.5;f*=2.03;}
   return s;
 }
-function newFlowP(p){
-  p.x=Math.random()*W;p.y=Math.random()*H;
-  p.px=p.x;p.py=p.y;
-  p.life=160+Math.random()*260;
-  var r=Math.random();
-  p.tone=r<.14?"rgba(120,220,255,0.085)":r<.55?"rgba(56,140,178,0.10)":"rgba(30,84,114,0.11)";
-  return p;
+var inkCloud=(function(){
+  var c=document.createElement("canvas");c.width=c.height=64;
+  var g=c.getContext("2d");
+  var grad=g.createRadialGradient(32,32,0,32,32,32);
+  grad.addColorStop(0,"rgba(190,225,240,0.55)");
+  grad.addColorStop(0.6,"rgba(160,205,225,0.18)");
+  grad.addColorStop(1,"rgba(160,205,225,0)");
+  g.fillStyle=grad;g.fillRect(0,0,64,64);
+  return c;
+})();
+function seedInk(){
+  inkA.width=inkB.width=Math.max(2,Math.round(W*IS));
+  inkA.height=inkB.height=Math.max(2,Math.round(H*IS));
+  inkAgents=[];inkQueue=[];
+  maskHalf.width=inkA.width;maskHalf.height=inkA.height;
+  mhctx.drawImage(maskCv,0,0,maskHalf.width,maskHalf.height);
 }
-function seedFlow(){
-  flowCv.width=W;flowCv.height=H;
-  flows=[];
-  var n=Math.round(W*H/2800);
-  for(var i=0;i<n;i++)flows.push(newFlowP({}));
+function inkAgent(x,y,ang,sp,w,maxLife,tone){
+  return {x:x,y:y,ang:ang,sp:sp,w:w,life:0,maxLife:maxLife,
+    seed:Math.random()*90,tone:tone||(Math.random()<.3?"205,232,244":"142,192,214")};
 }
-function drawFlow(t){
-  fctx.globalCompositeOperation="destination-out";
-  fctx.fillStyle="rgba(0,0,0,0.05)";
-  fctx.fillRect(0,0,W,H);
-  fctx.globalCompositeOperation="source-over";
-  fctx.lineWidth=1;
-  var sc=0.0017, tt=t*0.000028;
-  for(var i=0;i<flows.length;i++){
-    var p=flows[i];
-    var ang=fbm(p.x*sc+tt,p.y*sc-tt*0.6)*11.3;
-    p.px=p.x;p.py=p.y;
-    p.x+=Math.cos(ang)*0.85;p.y+=Math.sin(ang)*0.85;
-    if(--p.life<=0||p.x<-4||p.x>W+4||p.y<-4||p.y>H+4){newFlowP(p);continue;}
-    fctx.strokeStyle=p.tone;
-    fctx.beginPath();fctx.moveTo(p.px,p.py);fctx.lineTo(p.x,p.y);fctx.stroke();
+function drawInk(){
+  var w=inkA.width,h=inkA.height;
+  /* diffuse + fade the accumulated ink */
+  ictxB.clearRect(0,0,w,h);
+  ictxB.globalAlpha=0.962;
+  ictxB.filter="blur(1.1px)";
+  ictxB.drawImage(inkA,0,0);
+  ictxB.filter="none";
+  ictxB.globalAlpha=1;
+  var c=inkA;inkA=inkB;inkB=c;
+  var s=ictxA;ictxA=ictxB;ictxB=s;
+  var g=ictxA;
+  /* spawn brushes from queued cursor movement */
+  while(inkQueue.length){
+    var q=inkQueue.pop();
+    var n=1+Math.floor(Math.min(q.sp,24)/8);
+    for(var i=0;i<n;i++){
+      if(inkAgents.length>150)inkAgents.shift();
+      inkAgents.push(inkAgent(
+        q.x*IS,q.y*IS,
+        Math.atan2(q.dy,q.dx)+(Math.random()-.5)*1.7,
+        (0.5+Math.random()*1.2)*(0.7+Math.min(q.sp,26)*0.05),
+        (1.4+Math.random()*2.6)*(0.7+Math.min(q.sp,26)*0.03),
+        45+Math.random()*55));
+    }
+    var cr=(5+Math.min(q.sp,30)*0.9)*IS;
+    g.globalAlpha=0.05+Math.min(q.sp,30)*0.004;
+    g.drawImage(inkCloud,q.x*IS-cr,q.y*IS-cr,cr*2,cr*2);
+    g.globalAlpha=1;
   }
-  fctx.globalCompositeOperation="destination-out";
-  fctx.drawImage(maskCv,0,0);
-  fctx.globalCompositeOperation="source-over";
+  /* faint breathing under a resting cursor */
+  if(mouse.x>0 && !panelOpen && inkAgents.length<40 && Math.random()<0.06){
+    inkAgents.push(inkAgent(mouse.x*IS,mouse.y*IS,Math.random()*6.283,
+      0.4+Math.random()*0.5,0.8+Math.random()*1.2,30+Math.random()*30,"142,192,214"));
+  }
+  /* wandering brush tendrils */
+  g.lineCap="round";
+  for(var i=inkAgents.length-1;i>=0;i--){
+    var a=inkAgents[i];
+    a.life++;
+    if(a.life>a.maxLife){inkAgents.splice(i,1);continue;}
+    var px=a.x,py=a.y;
+    a.ang+=(fbm(a.x*0.013+a.seed,a.y*0.013-a.seed)-0.5)*1.8;
+    a.x+=Math.cos(a.ang)*a.sp;
+    a.y+=Math.sin(a.ang)*a.sp;
+    var k=1-a.life/a.maxLife;
+    g.strokeStyle="rgba("+a.tone+","+(0.05+0.15*k).toFixed(3)+")";
+    g.lineWidth=Math.max(0.3,a.w*k);
+    g.beginPath();g.moveTo(px,py);g.lineTo(a.x,a.y);g.stroke();
+    /* branching: one stroke splits like ink threads */
+    if(Math.random()<0.045 && a.life<a.maxLife*0.6 && inkAgents.length<150){
+      inkAgents.push(inkAgent(a.x,a.y,
+        a.ang+(Math.random()<.5?-1:1)*(0.7+Math.random()*0.9),
+        a.sp*0.85,a.w*0.55,(a.maxLife-a.life)*0.7,a.tone));
+    }
+  }
+  /* land stays clean: knock the ink out over the islands */
+  g.globalCompositeOperation="destination-out";
+  g.drawImage(maskHalf,0,0);
+  g.globalCompositeOperation="source-over";
 }
 
 /* ================= camera ================= */
@@ -539,11 +593,11 @@ function render(now){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
 
-  /* sea flow (fades out as the camera dives into a venue) */
+  /* sumi-e ink around the cursor (fades out as the camera dives into a venue) */
   if(!reduced){
-    drawFlow(t);
+    drawInk();
     var fa=Math.max(0,Math.min(1,1.55-cam.s*0.55));
-    if(fa>0){ctx.globalAlpha=fa;ctx.drawImage(flowCv,0,0,W,H);ctx.globalAlpha=1;}
+    if(fa>0){ctx.globalAlpha=fa;ctx.drawImage(inkA,0,0,W,H);ctx.globalAlpha=1;}
   }
 
   /* land dots */
@@ -555,11 +609,11 @@ function render(now){
       a=Math.max(0,Math.min(1,(t-delay)/450));
       if(a<=0)continue;
     }else a=1;
-    var tw=reduced?1:(0.72+0.28*Math.sin(t*0.0011*dt.sp+dt.ph));
-    var base=0.22+dt.near*0.34;
+    /* land is deliberately still: no flicker, nothing moving on or under it */
+    var base=0.26+dt.near*0.30;
     var p=camPos(dt.x,dt.y);
     var r=(1.0+dt.near*0.8)*Math.min(cam.s,3.0);
-    ctx.globalAlpha=base*tw*a;
+    ctx.globalAlpha=base*a;
     ctx.drawImage(dt.near>0.35?sprNear:sprFar,p[0]-r,p[1]-r,r*2,r*2);
   }
   ctx.globalAlpha=1;
@@ -574,26 +628,6 @@ function render(now){
       var spaced=rp.t.split("").join(" ");
       ctx.fillText(spaced,p[0],p[1]);
     }
-  }
-
-  /* circuit route 01→24 */
-  if(introDone && cam.s<2.2){
-    ctx.strokeStyle="rgba(92,214,255,.10)";
-    ctx.lineWidth=1;
-    ctx.setLineDash([3,7]);
-    ctx.lineDashOffset=reduced?0:-t*0.012;
-    ctx.beginPath();
-    var p0=camPos(routePts[0][0],routePts[0][1]);
-    ctx.moveTo(p0[0],p0[1]);
-    for(var i=1;i<routePts.length;i++){
-      var pa=camPos(routePts[i-1][0],routePts[i-1][1]);
-      var pb=camPos(routePts[i][0],routePts[i][1]);
-      ctx.quadraticCurveTo(pa[0],pa[1],(pa[0]+pb[0])/2,(pa[1]+pb[1])/2);
-    }
-    var pl=camPos(routePts[23][0],routePts[23][1]);
-    ctx.lineTo(pl[0],pl[1]);
-    ctx.stroke();
-    ctx.setLineDash([]);
   }
 
   /* venue beacons */
@@ -681,7 +715,12 @@ function venueAt(mx,my){
   return best;
 }
 canvas.addEventListener("mousemove",function(e){
+  var dx=e.clientX-mouse.x, dy=e.clientY-mouse.y;
   mouse.x=e.clientX;mouse.y=e.clientY;
+  if(!reduced && !panelOpen && introDone && Math.abs(dx)<200 && Math.abs(dy)<200){
+    var sp=Math.hypot(dx,dy);
+    if(sp>0.5 && inkQueue.length<10)inkQueue.push({x:e.clientX,y:e.clientY,dx:dx,dy:dy,sp:sp});
+  }
   if(panelOpen)return;
   var v=venueAt(e.clientX,e.clientY);
   setHover(v,e.clientX,e.clientY);
@@ -722,7 +761,7 @@ var resizeTm=null;
 window.addEventListener("resize",function(){
   clearTimeout(resizeTm);
   resizeTm=setTimeout(function(){
-    buildMap();seedFlow();
+    buildMap();seedInk();
     if(panelOpen&&currentV){cam.x=camT.x=currentV.sx;cam.y=camT.y=currentV.sy;}
     else resetCamTarget();
   },150);
@@ -938,7 +977,7 @@ buyBtn.addEventListener("click",function(){
 });
 
 /* ================= boot ================= */
-buildMap();seedFlow();resetCamTarget();
+buildMap();seedInk();resetCamTarget();
 cam={x:W/2,y:H/2,s:1};
 renderPt();
 requestAnimationFrame(render);

@@ -108,6 +108,27 @@
   }
   #toast.on{transform:translate(-50%,0);}
 
+  /* ============ engine view / telemetry ============ */
+  #telemetry{
+    bottom:86px;right:32px;text-align:right;
+    font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.18em;
+    color:var(--mut);line-height:1.9;
+  }
+  #engbtn{
+    pointer-events:auto;margin-top:10px;background:none;
+    border:1px solid var(--line);color:var(--mut);
+    font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.22em;
+    padding:5px 12px;cursor:pointer;transition:color .15s,border-color .15s,background .15s;
+  }
+  #engbtn:hover{color:var(--cyan);border-color:var(--cyan);}
+  #engbtn.on{color:#06222f;background:var(--cyan);border-color:var(--cyan);}
+  #engineinfo{
+    display:none;bottom:130px;left:32px;max-width:440px;
+    background:rgba(5,11,19,.9);border:1px solid var(--line);border-left:2px solid var(--cyan);
+    padding:12px 16px;font-size:11px;color:var(--mut);line-height:1.9;
+  }
+  #engineinfo b{color:var(--cyan);letter-spacing:.2em;display:block;margin-bottom:4px;}
+
   /* ============ venue panel ============ */
   #panel{
     position:absolute;inset:0;z-index:20;
@@ -234,6 +255,7 @@
     #brand{top:20px;left:20px;}
     #walletbox{top:20px;right:20px;}
     #status{display:none;}
+    #telemetry{display:none;}
     .panel-in{grid-template-columns:1fr;gap:26px;padding:72px 20px 40px;}
     .v-bigno{font-size:90px;}
     .v-name{font-size:34px;}
@@ -257,9 +279,22 @@
     <div class="lbl">HOLD</div>
     <div class="val"><span id="pt">1,000</span><em>PT</em></div>
     <div class="open-count">本日開催 <span id="opencount">8</span>場</div>
+    <button id="engbtn">⚙ ENGINE VIEW [E]</button>
   </div>
 
   <div class="hud" id="status"><span id="statustext">INITIALIZING ATLAS</span><span class="cursor"></span></div>
+
+  <div class="hud" id="telemetry">
+    <div id="tele1">FLUID 144×81 ── JACOBI×14</div>
+    <div id="tele2">-- fps ── SIM -- ms</div>
+  </div>
+
+  <div class="hud" id="engineinfo">
+    <b>REALTIME FLUID ENGINE ── NAVIER-STOKES</b>
+    半ラグランジュ移流+圧力Poisson(Jacobi×14/frame)のStam法を毎フレーム実行。<br>
+    カーソルの動きが外力項、海岸線が壁境界(琥珀=衝突セル)。<br>
+    ヒートマップ=圧力場 / ライン=速度場。144×81格子の生の計算値。
+  </div>
 
   <div id="hovercard"></div>
 
@@ -493,6 +528,9 @@ var LUTr=new Uint8Array(256),LUTg=new Uint8Array(256),LUTb=new Uint8Array(256),L
     LUTa[i]=Math.round(Math.pow(t,0.8)*165);
   }
 })();
+var pCv=document.createElement("canvas");pCv.width=FW;pCv.height=FH;
+var pctx=pCv.getContext("2d");
+var pimg=pctx.createImageData(FW,FH);
 var inkA=document.createElement("canvas"), ictxA=inkA.getContext("2d");
 var maskCv=document.createElement("canvas"), mctx=maskCv.getContext("2d");
 var maskHalf=document.createElement("canvas"), mhctx=maskHalf.getContext("2d");
@@ -612,6 +650,43 @@ function drawInk(){
   g.drawImage(maskHalf,0,0);
   g.globalCompositeOperation="source-over";
 }
+/* engine view: paint the solver's raw fields (no smoothing = honest grid) */
+function drawEngine(){
+  var maxp=1e-6,i;
+  for(i=0;i<FSZ;i++){var ap=Math.abs(fp[i]);if(ap>maxp)maxp=ap;}
+  var data=pimg.data;
+  for(var y=0;y<FH;y++){
+    for(var x=0;x<FW;x++){
+      var id=FI(x+1,y+1), i4=(y*FW+x)*4;
+      if(fsolid[id]){data[i4]=255;data[i4+1]=180;data[i4+2]=84;data[i4+3]=42;continue;}
+      var tt=fp[id]/maxp;
+      if(tt>0){data[i4]=255;data[i4+1]=140;data[i4+2]=90;}
+      else{data[i4]=80;data[i4+1]=160;data[i4+2]=255;}
+      data[i4+3]=Math.min(150,Math.abs(tt)*150)|0;
+    }
+  }
+  pctx.putImageData(pimg,0,0);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(pCv,0,0,W,H);
+  ctx.imageSmoothingEnabled=true;
+  /* velocity vectors, every 2nd cell */
+  ctx.strokeStyle="rgba(92,214,255,0.45)";
+  ctx.lineWidth=1;
+  var cw=W/FW, chh=H/FH;
+  ctx.beginPath();
+  for(var vy2=1;vy2<=FH;vy2+=2){
+    for(var vx2=1;vx2<=FW;vx2+=2){
+      var vid=FI(vx2,vy2);
+      if(fsolid[vid])continue;
+      var uu=fu[vid],vv=fv[vid];
+      if(uu*uu+vv*vv<0.0009)continue;
+      var px=(vx2-0.5)*cw, py=(vy2-0.5)*chh;
+      ctx.moveTo(px,py);
+      ctx.lineTo(px+uu*4,py+vv*4);
+    }
+  }
+  ctx.stroke();
+}
 
 /* ================= camera ================= */
 var cam={x:0,y:0,s:1}, camT={x:0,y:0,s:1};
@@ -629,18 +704,26 @@ var INTRO_DOTS=1100, INTRO_V0=1300, INTRO_VSTEP=80;
 var hoverV=null, panelOpen=false, currentV=null;
 
 /* ================= render ================= */
+var fpsEma=16.7,simEma=0,lastTele=0,lastNow=0;
 function render(now){
   var t=now-t0;
+  var fdlt=lastNow?now-lastNow:16.7; lastNow=now;
+  fpsEma=fpsEma*0.92+fdlt*0.08;
   cam.x+=(camT.x-cam.x)*.085; cam.y+=(camT.y-cam.y)*.085; cam.s+=(camT.s-cam.s)*.085;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
 
   /* sumi-e ink around the cursor (fades out as the camera dives into a venue) */
   if(!reduced){
+    var s0=performance.now();
     drawInk();
+    simEma=simEma*0.9+(performance.now()-s0)*0.1;
     var fa=Math.max(0,Math.min(1,1.55-cam.s*0.55));
     if(fa>0){ctx.globalAlpha=fa;ctx.drawImage(inkA,0,0,W,H);ctx.globalAlpha=1;}
   }
+
+  /* engine view: the live solver's raw pressure/velocity/collision fields */
+  if(engineView && cam.s<1.5)drawEngine();
 
   /* faint coastline to sharpen the silhouette */
   var ca=introDone?0.15:0.15*Math.min(1,t/1500);
@@ -760,12 +843,28 @@ function render(now){
       statusEl.textContent="ALL 24 VENUES ONLINE ── SELECT A VENUE";
     }
   }
+  if(now-lastTele>500){
+    lastTele=now;
+    var mass=0,act=0;
+    for(var ti=0;ti<FSZ;ti++){if(fd[ti]>0.02){act++;mass+=fd[ti];}}
+    tele1.textContent="FLUID 144\u00d781 \u2500 JACOBI\u00d714 \u2500 DYE "+mass.toFixed(1)+" \u2500 CELLS "+act;
+    tele2.textContent=Math.round(1000/fpsEma)+"fps \u2500 SIM "+simEma.toFixed(2)+"ms \u2500 DOTS "+dots.length;
+  }
   requestAnimationFrame(render);
 }
 
 /* ================= interaction ================= */
 var statusEl=document.getElementById("statustext");
 var hovercard=document.getElementById("hovercard");
+var tele1=document.getElementById("tele1"), tele2=document.getElementById("tele2");
+var engineView=false;
+var engbtn=document.getElementById("engbtn"), engineinfo=document.getElementById("engineinfo");
+function setEngine(on){
+  engineView=on;
+  engbtn.classList.toggle("on",on);
+  engineinfo.style.display=on?"block":"none";
+}
+engbtn.addEventListener("click",function(){setEngine(!engineView);});
 
 function venueAt(mx,my){
   var best=null,bd=18*18;
@@ -818,6 +917,7 @@ canvas.addEventListener("click",function(e){
 });
 window.addEventListener("keydown",function(e){
   if(e.key==="Escape"&&panelOpen)closeVenue();
+  if((e.key==="e"||e.key==="E")&&!panelOpen)setEngine(!engineView);
 });
 var resizeTm=null;
 window.addEventListener("resize",function(){

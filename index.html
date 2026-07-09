@@ -1,0 +1,946 @@
+<title>二十四場 — BOATRACE ATLAS(モック)</title>
+<style>
+  :root{
+    --bg:#04070d;
+    --ink:#eaf3fa;
+    --mut:#6b8199;
+    --mut2:#3d5063;
+    --cyan:#5cd6ff;
+    --cyan-deep:#123a52;
+    --amber:#ffb454;
+    --line:#14243a;
+    --win:#4fe08e;
+    --lose:#ff7272;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",sans-serif;
+    overflow:hidden;
+  }
+  #stage{position:fixed;inset:0;}
+  canvas#map{position:absolute;inset:0;display:block;cursor:default;}
+  /* vignette + faint scan texture over the sea */
+  #stage::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0,0,0,.55) 100%),
+      repeating-linear-gradient(180deg, rgba(255,255,255,.012) 0 2px, transparent 2px 5px);
+  }
+
+  .mono{font-family:ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace;}
+
+  /* ============ HUD ============ */
+  .hud{position:absolute;z-index:5;pointer-events:none;}
+  #brand{top:28px;left:32px;}
+  #brand .eyebrow{
+    font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spacing:.38em;
+    color:var(--cyan);opacity:.85;margin-bottom:10px;
+  }
+  #brand h1{
+    margin:0;font-size:clamp(34px,4.6vw,54px);font-weight:900;letter-spacing:.14em;line-height:1;
+    color:var(--ink);
+  }
+  #brand .sub{margin-top:10px;font-size:12.5px;color:var(--mut);letter-spacing:.2em;}
+
+  #walletbox{top:32px;right:32px;text-align:right;}
+  #walletbox .lbl{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.32em;color:var(--mut);}
+  #walletbox .val{
+    font-family:ui-monospace,Consolas,monospace;font-size:26px;font-weight:700;color:var(--ink);
+    font-variant-numeric:tabular-nums;letter-spacing:.04em;
+  }
+  #walletbox .val em{font-style:normal;font-size:13px;color:var(--mut);margin-left:4px;}
+  #walletbox .open-count{font-size:11px;color:var(--amber);letter-spacing:.2em;margin-top:6px;}
+  #walletbox .open-count::before{content:"●";font-size:8px;vertical-align:2px;margin-right:6px;}
+
+  #status{
+    bottom:86px;left:32px;
+    font-family:ui-monospace,Consolas,monospace;font-size:11.5px;letter-spacing:.28em;color:var(--mut);
+  }
+  #status .cursor{display:inline-block;width:8px;height:13px;background:var(--cyan);
+    vertical-align:-2px;margin-left:6px;animation:blinkc 1s steps(2) infinite;}
+  @keyframes blinkc{50%{opacity:0;}}
+
+  /* ============ hover card ============ */
+  #hovercard{
+    position:absolute;z-index:6;pointer-events:none;min-width:210px;max-width:260px;
+    background:rgba(5,11,19,.92);border:1px solid var(--line);border-left:2px solid var(--cyan);
+    padding:12px 14px;opacity:0;transform:translateY(4px);
+    transition:opacity .15s ease, transform .15s ease;
+    backdrop-filter:blur(6px);
+  }
+  #hovercard.on{opacity:1;transform:translateY(0);}
+  #hovercard .no{font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--cyan);letter-spacing:.3em;}
+  #hovercard .nm{font-size:19px;font-weight:900;letter-spacing:.1em;margin:2px 0 6px;}
+  #hovercard .nm small{font-size:11px;color:var(--mut);font-weight:400;margin-left:8px;letter-spacing:.15em;}
+  #hovercard .tr{font-size:11.5px;color:var(--mut);line-height:1.65;margin-bottom:8px;}
+  #hovercard .enter{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.28em;color:var(--cyan);}
+
+  /* ============ venue bar ============ */
+  #venuebar{
+    position:absolute;left:0;right:0;bottom:0;z-index:5;
+    display:flex;align-items:center;gap:4px;
+    padding:10px 16px 12px;
+    background:linear-gradient(180deg, transparent, rgba(3,6,11,.9) 30%);
+    overflow-x:auto;scrollbar-width:none;
+  }
+  #venuebar::-webkit-scrollbar{display:none;}
+  .vchip{
+    flex:0 0 auto;display:flex;align-items:center;gap:7px;
+    background:transparent;border:1px solid var(--line);color:var(--mut);
+    padding:7px 12px;cursor:pointer;font-size:12px;letter-spacing:.08em;
+    font-family:inherit;transition:border-color .15s, color .15s, background .15s;
+  }
+  .vchip .cno{font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--mut2);letter-spacing:.1em;}
+  .vchip .dot{width:5px;height:5px;border-radius:50%;background:var(--mut2);}
+  .vchip.open .dot{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+  .vchip:hover{border-color:var(--cyan);color:var(--ink);background:rgba(92,214,255,.06);}
+  .vchip:hover .cno{color:var(--cyan);}
+
+  /* ============ toast ============ */
+  #toast{
+    position:absolute;top:26px;left:50%;transform:translate(-50%,-70px);z-index:9;
+    background:rgba(5,11,19,.95);border:1px solid var(--line);border-left:2px solid var(--win);
+    padding:10px 20px;font-size:13px;letter-spacing:.08em;transition:transform .35s ease;
+  }
+  #toast.on{transform:translate(-50%,0);}
+
+  /* ============ venue panel ============ */
+  #panel{
+    position:absolute;inset:0;z-index:20;
+    background:linear-gradient(100deg, rgba(3,7,12,.96) 0%, rgba(4,9,16,.88) 55%, rgba(4,10,18,.82) 100%);
+    backdrop-filter:blur(10px);
+    opacity:0;visibility:hidden;transition:opacity .4s ease, visibility .4s;
+    overflow-y:auto;
+  }
+  #panel.open{opacity:1;visibility:visible;}
+  .panel-in{
+    max-width:1180px;margin:0 auto;padding:76px 36px 48px;
+    display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:48px;
+    opacity:0;transform:translateY(18px);transition:opacity .45s ease .12s, transform .45s ease .12s;
+  }
+  #panel.open .panel-in{opacity:1;transform:none;}
+  #backbtn{
+    position:absolute;top:24px;left:28px;z-index:22;
+    background:none;border:1px solid var(--line);color:var(--mut);
+    font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spacing:.3em;
+    padding:9px 18px;cursor:pointer;transition:color .15s,border-color .15s;
+  }
+  #backbtn:hover{color:var(--cyan);border-color:var(--cyan);}
+  .esc-hint{position:absolute;top:33px;left:150px;font-size:10px;color:var(--mut2);letter-spacing:.2em;}
+
+  .v-info{position:relative;}
+  .v-bigno{
+    font-family:ui-monospace,Consolas,monospace;font-size:150px;font-weight:700;line-height:.8;
+    color:transparent;-webkit-text-stroke:1px rgba(92,214,255,.28);letter-spacing:-.04em;
+    user-select:none;margin-left:-6px;
+  }
+  .v-name{font-size:46px;font-weight:900;letter-spacing:.12em;margin:14px 0 2px;}
+  .v-name small{display:block;font-size:12px;color:var(--mut);font-weight:400;letter-spacing:.34em;margin-top:8px;}
+  .v-chips{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0;}
+  .tag{
+    border:1px solid var(--line);color:var(--mut);font-size:11px;letter-spacing:.18em;
+    padding:4px 12px;
+  }
+  .tag.water{color:var(--cyan);border-color:var(--cyan-deep);}
+  .tag.night{color:#c9b6ff;border-color:#3a2f63;}
+  .tag.open-t{color:var(--amber);border-color:#5a3d14;}
+  .v-trait{font-size:13.5px;color:var(--mut);line-height:1.9;margin:0 0 26px;max-width:34em;}
+  .gauge-lbl{display:flex;justify-content:space-between;font-family:ui-monospace,Consolas,monospace;
+    font-size:10px;letter-spacing:.26em;color:var(--mut);margin-bottom:7px;}
+  .gauge{height:3px;background:var(--line);margin-bottom:26px;}
+  .gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan-deep),var(--cyan));width:0%;
+    transition:width .8s cubic-bezier(.2,.7,.2,1) .3s;box-shadow:0 0 8px rgba(92,214,255,.5);}
+  .v-note{font-size:11.5px;color:var(--mut2);line-height:1.8;border-top:1px solid var(--line);padding-top:14px;}
+
+  /* race card */
+  .racecard{border:1px solid var(--line);background:rgba(6,12,20,.5);}
+  .rc-head{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:14px 20px;border-bottom:1px solid var(--line);
+  }
+  .rc-head .rtitle{font-size:15px;font-weight:900;letter-spacing:.16em;}
+  .rc-head .rtitle span{color:var(--amber);}
+  .rc-head .deadline{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--mut);letter-spacing:.14em;}
+  .rc-head .deadline b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums;}
+  .rc-head .deadline.hot b{color:var(--lose);}
+  .rc-body{padding:18px 20px 22px;}
+  table.sh{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.sh th{
+    text-align:left;font-family:ui-monospace,Consolas,monospace;font-weight:400;
+    font-size:10px;letter-spacing:.22em;color:var(--mut2);padding:4px 8px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  table.sh th.r, table.sh td.r{text-align:right;}
+  table.sh td{padding:8px;border-bottom:1px solid rgba(20,36,58,.6);}
+  table.sh tr.row{cursor:pointer;transition:background .12s;}
+  table.sh tr.row:hover{background:rgba(92,214,255,.05);}
+  table.sh tr.row.sel{background:rgba(92,214,255,.09);box-shadow:inset 2px 0 0 var(--cyan);}
+  .lane{
+    display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
+    font-family:ui-monospace,Consolas,monospace;font-weight:700;font-size:12px;
+  }
+  .l1{background:#f2f2f2;color:#10151c;} .l2{background:#15181d;color:#e8e8e8;outline:1px solid #3a4552;}
+  .l3{background:#d8383a;color:#fff;} .l4{background:#2470c9;color:#fff;}
+  .l5{background:#e8c231;color:#141414;} .l6{background:#2fa864;color:#fff;}
+  .kcls{font-size:10px;color:var(--mut);border:1px solid var(--line);padding:1px 5px;margin-left:7px;letter-spacing:.1em;}
+  td.num,.num{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;}
+  td .odds-v{color:var(--cyan);font-weight:700;}
+
+  .bet-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 0 4px;}
+  .stake{display:flex;}
+  .stake button{
+    background:none;border:1px solid var(--line);border-right:none;color:var(--mut);
+    font-family:ui-monospace,Consolas,monospace;font-size:12px;padding:9px 16px;cursor:pointer;
+    letter-spacing:.06em;
+  }
+  .stake button:last-child{border-right:1px solid var(--line);}
+  .stake button.on{background:var(--cyan);color:#06222f;border-color:var(--cyan);font-weight:700;}
+  #buy{
+    background:var(--cyan);color:#06222f;border:none;font-weight:900;letter-spacing:.3em;
+    font-size:13px;padding:11px 30px;cursor:pointer;font-family:inherit;
+    transition:opacity .15s, box-shadow .15s;
+  }
+  #buy:hover:not(:disabled){box-shadow:0 0 22px rgba(92,214,255,.45);}
+  #buy:disabled{opacity:.25;cursor:default;}
+  .betmsg{font-size:12px;color:var(--mut);letter-spacing:.06em;}
+
+  .rtrack{
+    position:relative;height:186px;margin-top:18px;overflow:hidden;
+    background:linear-gradient(180deg,#061826,#03101c);
+    border:1px solid var(--line);
+  }
+  .rtrack .lane-line{position:absolute;left:0;right:0;height:1px;background:rgba(92,214,255,.05);}
+  .rtrack .goal{position:absolute;right:30px;top:0;bottom:0;width:2px;
+    background:repeating-linear-gradient(180deg,#dfe7ee 0 7px,transparent 7px 14px);opacity:.6;}
+  .rboat{
+    position:absolute;left:0;width:54px;height:22px;
+    display:flex;align-items:center;gap:6px;padding:0 6px;
+    font-family:ui-monospace,Consolas,monospace;font-weight:700;font-size:12px;
+    clip-path:polygon(0 0, 82% 0, 100% 50%, 82% 100%, 0 100%);
+  }
+  .rboat i{font-style:normal;font-size:10px;opacity:.8;}
+  .rmsg{
+    margin-top:14px;min-height:24px;font-family:ui-monospace,Consolas,monospace;
+    font-size:13px;letter-spacing:.06em;color:var(--mut);
+  }
+  .rmsg.win{color:var(--win);} .rmsg.lose{color:var(--lose);}
+
+  @media (max-width:860px){
+    #brand h1{font-size:30px;}
+    #brand{top:20px;left:20px;}
+    #walletbox{top:20px;right:20px;}
+    #status{display:none;}
+    .panel-in{grid-template-columns:1fr;gap:26px;padding:72px 20px 40px;}
+    .v-bigno{font-size:90px;}
+    .v-name{font-size:34px;}
+    table.sh .hide-sp{display:none;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #status .cursor{animation:none;}
+  }
+</style>
+
+<div id="stage">
+  <canvas id="map"></canvas>
+
+  <div class="hud" id="brand">
+    <div class="eyebrow">BOATRACE ATLAS ── PLAYABLE PORTFOLIO</div>
+    <h1>二十四場</h1>
+    <div class="sub">全国24ボートレース場 ── 選んで、入って、賭ける。</div>
+  </div>
+
+  <div class="hud" id="walletbox">
+    <div class="lbl">HOLD</div>
+    <div class="val"><span id="pt">1,000</span><em>PT</em></div>
+    <div class="open-count">本日開催 <span id="opencount">8</span>場</div>
+  </div>
+
+  <div class="hud" id="status"><span id="statustext">INITIALIZING ATLAS</span><span class="cursor"></span></div>
+
+  <div id="hovercard"></div>
+
+  <div id="venuebar"></div>
+
+  <div id="toast"></div>
+
+  <section id="panel">
+    <button id="backbtn">← MAP</button>
+    <span class="esc-hint">ESC</span>
+    <div class="panel-in">
+      <div class="v-info">
+        <div class="v-bigno" id="p-no">24</div>
+        <div class="v-name" id="p-name">大村<small id="p-en">OMURA / NAGASAKI</small></div>
+        <div class="v-chips" id="p-chips"></div>
+        <p class="v-trait" id="p-trait"></p>
+        <div class="gauge-lbl"><span>イン信頼度 / LANE-1 TRUST</span><span id="p-instr" class="num">75%</span></div>
+        <div class="gauge"><i id="p-gauge"></i></div>
+        <p class="v-note">このモックのレースは各場の水面特性(イン信頼度)を反映した シミュレーションです。本番サイトでは過去の実レースのリプレイ (実際の出走表・確定オッズ・結果)に置き換わります。</p>
+      </div>
+      <div class="racecard">
+        <div class="rc-head">
+          <div class="rtitle" id="p-race">第12R 予選</div>
+          <div class="deadline" id="p-deadline">締切まで <b>05:00</b></div>
+        </div>
+        <div class="rc-body">
+          <table class="sh">
+            <thead>
+              <tr><th>枠</th><th>選手</th><th class="hide-sp r">勝率</th><th class="hide-sp r">ST</th><th class="r">単勝</th></tr>
+            </thead>
+            <tbody id="p-tbody"></tbody>
+          </table>
+          <div class="bet-row">
+            <div class="stake" id="stake">
+              <button data-v="100" class="on">100</button>
+              <button data-v="300">300</button>
+              <button data-v="500">500</button>
+            </div>
+            <button id="buy" disabled>舟券購入</button>
+            <span class="betmsg" id="betmsg">艇を選択</span>
+          </div>
+          <div class="rtrack" id="rtrack"><div class="goal"></div></div>
+          <div class="rmsg" id="rmsg">出走表から1艇選んで単勝を購入。オッズ×賭けPTが払戻し。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= data ================= */
+var VENUES=[
+ {id:1, name:"桐生", en:"KIRYU / GUNMA",       lon:139.33,lat:36.42,water:"淡水",night:true, inStr:.45,trait:"標高日本一のレース場。赤城おろしが吹く冬場は気圧でモーターが仕上がり、出足勝負になる。",ld:[8,-9]},
+ {id:2, name:"戸田", en:"TODA / SAITAMA",      lon:139.65,lat:35.81,water:"淡水",night:false,inStr:.25,trait:"全国屈指の狭水面。1マークの振りが大きくイン受難、まくり屋が跋扈する穴場。",ld:[-30,-8]},
+ {id:3, name:"江戸川",en:"EDOGAWA / TOKYO",    lon:139.88,lat:35.69,water:"汽水",night:false,inStr:.30,trait:"全国唯一の河川コース。川の流れ×海風×潮位で、全国最凶と呼ばれる荒れ水面。",ld:[10,-4]},
+ {id:4, name:"平和島",en:"HEIWAJIMA / TOKYO",  lon:139.74,lat:35.58,water:"海水",night:false,inStr:.30,trait:"海水・ビル風の難水面。イン受難で差しが決まる、穴党の聖地。",ld:[10,10]},
+ {id:5, name:"多摩川",en:"TAMAGAWA / TOKYO",   lon:139.50,lat:35.64,water:"淡水",night:false,inStr:.45,trait:"日本一の静水面。風の影響が少なく、実力とモーター気配が素直に出る教科書水面。",ld:[-34,8]},
+ {id:6, name:"浜名湖",en:"HAMANAKO / SHIZUOKA",lon:137.57,lat:34.70,water:"汽水",night:false,inStr:.45,trait:"全国最大級の広い水面。スピード戦になりやすく、伸び型モーターが活きる。",ld:[6,12]},
+ {id:7, name:"蒲郡", en:"GAMAGORI / AICHI",    lon:137.24,lat:34.82,water:"汽水",night:true, inStr:.60,trait:"ナイターの雄。静水面でイン信頼度が高く、本命党の主戦場。",ld:[8,-9]},
+ {id:8, name:"常滑", en:"TOKONAME / AICHI",    lon:136.83,lat:34.89,water:"海水",night:false,inStr:.50,trait:"伊勢湾に面し、季節風で表情が変わる。風速と風向のチェックが勝負所。",ld:[-8,-11]},
+ {id:9, name:"津",   en:"TSU / MIE",           lon:136.52,lat:34.69,water:"海水",night:false,inStr:.45,trait:"風の強い日は全国有数の難水面に豹変する。穏やかな日との落差が大きい。",ld:[-22,4]},
+ {id:10,name:"三国", en:"MIKUNI / FUKUI",      lon:136.15,lat:36.22,water:"淡水",night:false,inStr:.50,trait:"北陸唯一のレース場。カドが利きにくく、センター勢の攻めがカギ。",ld:[8,-8]},
+ {id:11,name:"びわこ",en:"BIWAKO / SHIGA",     lon:135.90,lat:35.02,water:"淡水",night:false,inStr:.35,trait:"うねりの水面。琵琶湖の水位とうねり適性で波乱が生まれる。",ld:[8,-9]},
+ {id:12,name:"住之江",en:"SUMINOE / OSAKA",    lon:135.48,lat:34.61,water:"淡水",night:true, inStr:.55,trait:"競艇の聖地。SG常連の完全人工プールで、格の違いが出やすい。",ld:[-12,14]},
+ {id:13,name:"尼崎", en:"AMAGASAKI / HYOGO",   lon:135.42,lat:34.72,water:"淡水",night:false,inStr:.55,trait:"静水面で堅め決着が多い、関西の優等生。イン信頼で組み立てる場。",ld:[-30,-8]},
+ {id:14,name:"鳴門", en:"NARUTO / TOKUSHIMA",  lon:134.61,lat:34.18,water:"海水",night:false,inStr:.35,trait:"渦潮の街。うねりと干満差で1マークが暴れる、難易度高めの水面。",ld:[8,10]},
+ {id:15,name:"丸亀", en:"MARUGAME / KAGAWA",   lon:133.80,lat:34.29,water:"海水",night:true, inStr:.55,trait:"ナイター×海水。干満差はあるが水面は素直で、イン軸が立てやすい。",ld:[4,13]},
+ {id:16,name:"児島", en:"KOJIMA / OKAYAMA",    lon:133.81,lat:34.47,water:"海水",night:false,inStr:.50,trait:"干満差2m超。満潮と干潮でまるで別のレース場になる、潮読みの場。",ld:[6,-10]},
+ {id:17,name:"宮島", en:"MIYAJIMA / HIROSHIMA",lon:132.32,lat:34.30,water:"海水",night:false,inStr:.45,trait:"厳島神社の目の前。干満差3m級で、潮の満ち引きが展開を支配する。",ld:[6,-10]},
+ {id:18,name:"徳山", en:"TOKUYAMA / YAMAGUCHI",lon:131.81,lat:34.05,water:"海水",night:false,inStr:.70,trait:"イン天国。1コース1着率は全国トップ級で、鉄板レースの供給源。",ld:[8,8]},
+ {id:19,name:"下関", en:"SHIMONOSEKI / YAMAGUCHI",lon:130.94,lat:33.96,water:"海水",night:true,inStr:.60,trait:"ナイター開催。素直な水面でイン堅調、夜の本命党向き。",ld:[2,-12]},
+ {id:20,name:"若松", en:"WAKAMATSU / FUKUOKA", lon:130.81,lat:33.91,water:"海水",night:true, inStr:.55,trait:"洞海湾のナイター。冬の季節風の日だけは注意が必要。",ld:[12,-2]},
+ {id:21,name:"芦屋", en:"ASHIYA / FUKUOKA",    lon:130.66,lat:33.89,water:"淡水",night:false,inStr:.60,trait:"モーニング開催の先駆け。人工池の静水面でイン強め、朝の鉄板場。",ld:[-28,-6]},
+ {id:22,name:"福岡", en:"FUKUOKA / FUKUOKA",   lon:130.40,lat:33.59,water:"汽水",night:false,inStr:.40,trait:"那珂川の河口×博多湾。うねりが入る都市型の難水面。",ld:[-8,12]},
+ {id:23,name:"唐津", en:"KARATSU / SAGA",      lon:129.98,lat:33.45,water:"淡水",night:false,inStr:.50,trait:"モーニング開催。松浦川の淡水面は朝のうちは静か、風が出る昼から動く。",ld:[-8,-12]},
+ {id:24,name:"大村", en:"OMURA / NAGASAKI",    lon:129.97,lat:32.92,water:"海水",night:true, inStr:.75,trait:"競艇発祥の地にして、イン1着率全国No.1。鉄板の殿堂、本命党の楽園。",ld:[-6,14]}
+];
+var OPEN_IDS=[3,7,10,12,15,18,22,24];
+
+/* Japan coastline: Natural Earth 50m, simplified (13 islands, 502 pts) */
+var ISLANDS=[
+[[141.23,41.37],[141.27,41.35],[141.46,41.4],[141.4,41.1],[141.43,40.72],[141.46,40.61],[141.65,40.47],[141.8,40.29],[141.99,39.79],[141.98,39.43],[141.9,39.11],[141.84,39.09],[141.78,39.02],[141.66,38.97],[141.62,38.87],[141.55,38.76],[141.51,38.5],[141.47,38.4],[141.11,38.34],[140.96,38.15],[140.93,37.95],[141.0,37.7],[141.04,37.47],[141.0,37.11],[140.97,37.0],[140.79,36.85],[140.73,36.73],[140.63,36.5],[140.57,36.23],[140.62,36.06],[140.76,35.85],[140.87,35.72],[140.64,35.66],[140.46,35.51],[140.41,35.39],[140.42,35.27],[140.35,35.18],[140.06,35.04],[139.92,34.9],[139.84,34.91],[139.8,34.96],[139.84,35.01],[139.85,35.23],[139.83,35.3],[139.91,35.35],[139.94,35.42],[140.09,35.54],[140.1,35.59],[139.99,35.67],[139.83,35.66],[139.79,35.61],[139.77,35.49],[139.65,35.41],[139.67,35.32],[139.74,35.25],[139.68,35.15],[139.64,35.14],[139.56,35.24],[139.47,35.3],[139.25,35.28],[139.13,35.15],[139.09,34.84],[138.98,34.7],[138.9,34.63],[138.84,34.62],[138.76,34.7],[138.8,34.97],[138.9,35.03],[138.82,35.1],[138.72,35.12],[138.58,35.09],[138.25,34.73],[138.19,34.6],[137.98,34.64],[137.54,34.66],[137.06,34.58],[137.08,34.62],[137.29,34.7],[137.28,34.77],[137.03,34.77],[136.96,34.83],[136.93,34.82],[136.94,34.72],[136.87,34.73],[136.88,34.81],[136.85,34.98],[136.9,35.04],[136.8,35.05],[136.69,34.98],[136.53,34.68],[136.62,34.59],[136.88,34.43],[136.85,34.32],[136.54,34.26],[136.33,34.18],[135.92,33.56],[135.7,33.49],[135.45,33.55],[135.35,33.72],[135.18,33.9],[135.13,34.01],[135.14,34.18],[135.1,34.29],[135.31,34.42],[135.41,34.55],[135.42,34.62],[135.36,34.65],[135.04,34.63],[134.74,34.77],[134.58,34.77],[134.25,34.71],[133.97,34.53],[133.45,34.43],[133.14,34.3],[133.02,34.33],[132.66,34.25],[132.42,34.35],[132.31,34.32],[132.24,34.23],[132.15,33.84],[131.74,34.05],[131.48,34.02],[131.23,33.95],[131.07,34.02],[130.92,33.98],[130.89,34.26],[131.0,34.39],[131.35,34.41],[131.61,34.62],[131.86,34.73],[132.26,35.02],[132.62,35.31],[132.7,35.42],[132.92,35.51],[133.27,35.56],[133.38,35.46],[133.62,35.51],[133.98,35.51],[134.21,35.54],[134.46,35.63],[134.88,35.66],[135.17,35.75],[135.27,35.72],[135.27,35.66],[135.23,35.59],[135.33,35.53],[135.68,35.5],[135.9,35.61],[136.1,35.77],[136.02,35.87],[136.01,35.99],[136.07,36.12],[136.16,36.22],[136.36,36.36],[136.7,36.74],[136.75,36.95],[136.72,37.2],[136.84,37.38],[137.32,37.52],[137.34,37.44],[137.15,37.28],[136.92,37.17],[136.9,37.12],[136.99,37.03],[137.02,36.84],[137.12,36.77],[137.25,36.75],[137.34,36.77],[137.51,36.95],[137.91,37.06],[138.32,37.22],[138.63,37.47],[138.89,37.84],[139.25,38.01],[139.36,38.1],[139.4,38.14],[139.52,38.5],[139.8,38.88],[139.91,39.23],[140.04,39.41],[140.06,39.62],[140.05,39.75],[139.99,39.86],[139.95,39.89],[139.81,39.88],[139.74,39.92],[139.76,39.96],[139.87,39.99],[139.91,40.02],[140.01,40.26],[140.01,40.31],[139.92,40.53],[139.92,40.6],[139.97,40.67],[140.03,40.73],[140.2,40.77],[140.28,40.85],[140.34,41.01],[140.32,41.16],[140.39,41.23],[140.63,41.2],[140.68,40.89],[140.75,40.83],[140.8,40.83],[140.88,40.93],[140.94,40.94],[141.12,40.88],[141.23,40.99],[141.26,41.1],[141.24,41.21],[141.2,41.24],[140.8,41.14],[140.8,41.25],[140.86,41.43],[140.94,41.51],[141.11,41.46]],
+[[143.82,44.12],[144.1,44.1],[144.48,43.95],[144.72,43.93],[144.87,43.98],[145.34,44.33],[145.37,44.33],[145.35,44.23],[145.13,43.87],[145.1,43.76],[145.14,43.66],[145.21,43.58],[145.34,43.3],[145.49,43.28],[145.67,43.39],[145.83,43.39],[145.62,43.29],[145.51,43.17],[145.35,43.18],[144.92,43.0],[144.63,42.95],[144.2,42.97],[143.97,42.88],[143.58,42.6],[143.43,42.42],[143.33,42.22],[143.31,42.08],[143.24,42.0],[143.11,42.02],[142.51,42.26],[141.85,42.58],[141.41,42.55],[140.99,42.34],[140.71,42.56],[140.48,42.56],[140.35,42.44],[140.32,42.33],[140.33,42.29],[140.53,42.13],[140.73,42.12],[141.15,41.81],[141.0,41.74],[140.82,41.76],[140.66,41.82],[140.49,41.67],[140.38,41.52],[140.27,41.46],[140.15,41.42],[140.04,41.47],[140.0,41.58],[140.11,41.91],[140.06,42.07],[139.9,42.19],[139.84,42.28],[139.82,42.39],[139.86,42.58],[139.89,42.65],[140.11,42.73],[140.43,42.95],[140.49,43.05],[140.4,43.17],[140.39,43.3],[140.49,43.34],[140.82,43.21],[141.14,43.18],[141.3,43.2],[141.37,43.28],[141.41,43.38],[141.4,43.64],[141.45,43.75],[141.6,43.92],[141.64,44.02],[141.66,44.26],[141.76,44.48],[141.78,44.72],[141.72,44.94],[141.58,45.16],[141.59,45.26],[141.67,45.4],[141.83,45.44],[141.94,45.51],[142.42,45.12],[142.7,44.82],[142.88,44.67],[143.29,44.4]],
+[[131.17,33.6],[131.37,33.57],[131.58,33.65],[131.7,33.6],[131.72,33.55],[131.71,33.5],[131.54,33.27],[131.9,33.25],[131.85,33.12],[131.95,33.05],[131.91,32.97],[132.01,32.92],[132.0,32.88],[131.73,32.59],[131.66,32.47],[131.46,31.88],[131.46,31.67],[131.34,31.4],[131.07,31.44],[131.04,31.38],[131.1,31.26],[130.9,31.11],[130.69,31.02],[130.68,31.06],[130.76,31.16],[130.79,31.27],[130.7,31.58],[130.8,31.62],[130.78,31.71],[130.66,31.72],[130.56,31.56],[130.54,31.4],[130.64,31.27],[130.59,31.18],[130.2,31.29],[130.15,31.41],[130.29,31.45],[130.32,31.6],[130.19,31.77],[130.21,31.85],[130.19,32.09],[130.32,32.14],[130.39,32.22],[130.64,32.62],[130.5,32.66],[130.57,32.73],[130.55,32.83],[130.44,32.95],[130.38,33.09],[130.24,33.18],[130.13,33.1],[130.17,33.01],[130.18,32.85],[130.33,32.85],[130.36,32.76],[130.34,32.7],[130.25,32.68],[130.15,32.75],[130.05,32.77],[129.95,32.72],[129.77,32.57],[129.83,32.73],[129.69,32.88],[129.66,32.99],[129.68,33.06],[129.78,32.99],[129.83,32.89],[129.9,32.85],[129.99,32.85],[129.9,33.02],[129.58,33.24],[129.61,33.34],[129.66,33.36],[129.84,33.32],[129.86,33.38],[129.83,33.44],[130.07,33.52],[130.17,33.6],[130.28,33.6],[130.37,33.63],[130.48,33.83],[130.72,33.93],[130.84,33.92],[130.95,33.87],[131.06,33.67]],
+[[134.36,34.26],[134.5,34.21],[134.64,34.23],[134.64,34.04],[134.7,33.93],[134.67,33.85],[134.74,33.82],[134.38,33.61],[134.24,33.44],[134.18,33.25],[133.96,33.45],[133.85,33.49],[133.63,33.51],[133.29,33.36],[133.15,33.08],[133.02,32.98],[132.98,32.84],[132.87,32.75],[132.8,32.75],[132.64,32.76],[132.71,32.9],[132.5,32.92],[132.49,33.01],[132.43,33.06],[132.48,33.13],[132.51,33.29],[132.41,33.33],[132.41,33.43],[132.03,33.34],[132.64,33.69],[132.78,33.99],[132.94,34.1],[132.99,34.09],[133.13,33.93],[133.19,33.93],[133.35,33.98],[133.47,33.97],[133.58,34.02],[133.64,34.13],[133.6,34.24],[133.71,34.24],[133.95,34.35],[134.08,34.36]],
+[[138.34,37.82],[138.23,37.83],[138.28,37.85],[138.32,37.97],[138.32,37.99],[138.25,37.99],[138.25,38.08],[138.31,38.16],[138.5,38.32],[138.45,38.08],[138.58,38.07],[138.5,37.9]],
+[[130.08,32.23],[130.0,32.19],[129.96,32.24],[130.02,32.29],[129.98,32.35],[130.02,32.47],[130.01,32.52],[130.17,32.54],[130.2,32.49],[130.2,32.34]],
+[[134.93,34.29],[134.82,34.2],[134.73,34.21],[134.67,34.29],[134.83,34.47],[135.0,34.54],[134.91,34.4]],
+[[129.39,34.35],[129.37,34.31],[129.27,34.37],[129.33,34.52],[129.33,34.61],[129.45,34.69],[129.48,34.65],[129.48,34.54],[129.38,34.42]],
+[[128.67,32.78],[128.7,32.76],[128.84,32.76],[128.89,32.65],[128.79,32.64],[128.75,32.59],[128.69,32.6],[128.65,32.66]],
+[[129.28,34.12],[129.21,34.08],[129.19,34.15],[129.21,34.32],[129.34,34.28]],
+[[133.37,36.2],[133.32,36.17],[133.24,36.18],[133.19,36.23],[133.21,36.29],[133.3,36.34],[133.38,36.25]],
+[[129.08,32.84],[129.05,32.83],[129.0,32.95],[129.03,32.97],[129.11,33.13],[129.15,33.0],[129.18,32.99],[129.11,32.93]],
+[[141.3,45.12],[141.23,45.11],[141.15,45.15],[141.14,45.21],[141.19,45.25],[141.25,45.23],[141.33,45.15]]
+];
+var REGIONS=[
+ {t:"HOKKAIDO",lon:143.0,lat:43.1},{t:"TOHOKU",lon:142.6,lat:39.6},
+ {t:"KANTO",lon:141.6,lat:36.1},{t:"TOKAI",lon:137.9,lat:33.75},
+ {t:"KINKI",lon:135.6,lat:32.85},{t:"CHUGOKU",lon:132.9,lat:36.15},
+ {t:"SHIKOKU",lon:133.4,lat:32.45},{t:"KYUSHU",lon:129.1,lat:31.75}
+];
+
+/* ================= canvas / projection ================= */
+var canvas=document.getElementById("map"), ctx=canvas.getContext("2d");
+var W=0,H=0,dpr=1;
+var TH=-24*Math.PI/180, COS=Math.cos(TH), SIN=Math.sin(TH), KLON=0.793;
+var reduced=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* pre-rendered dot sprites (fast drawImage instead of arc/fill) */
+function makeSprite(color){
+  var c=document.createElement("canvas");c.width=c.height=32;
+  var g=c.getContext("2d");
+  var grad=g.createRadialGradient(16,16,0,16,16,16);
+  grad.addColorStop(0,color);grad.addColorStop(0.55,color);grad.addColorStop(1,"rgba(0,0,0,0)");
+  g.fillStyle=grad;g.fillRect(0,0,32,32);
+  return c;
+}
+var sprFar=makeSprite("#4a6a8a"), sprNear=makeSprite("#6fc4e8");
+
+function proj(lon,lat){
+  var x=(lon-135)*KLON, y=-(lat-38);
+  return [x*COS-y*SIN, x*SIN+y*COS];
+}
+var screenPolys=[], dots=[], regionPts=[], routePts=[];
+var minX,maxX;
+
+function buildMap(){
+  W=window.innerWidth; H=window.innerHeight;
+  dpr=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+"px"; canvas.style.height=H+"px";
+
+  var raw=ISLANDS.map(function(poly){return poly.map(function(p){return proj(p[0],p[1]);});});
+  /* frame on Honshu/Kyushu/Shikoku (skip Hokkaido = raw[1]) so the venue belt fills the screen */
+  var bx0=1e9,by0=1e9,bx1=-1e9,by1=-1e9;
+  raw.forEach(function(poly,pi){
+    if(pi===1)return;
+    poly.forEach(function(p){
+      bx0=Math.min(bx0,p[0]);by0=Math.min(by0,p[1]);bx1=Math.max(bx1,p[0]);by1=Math.max(by1,p[1]);
+    });
+  });
+  var pad=0.04, availW=W*(1-pad*2), availH=(H-110)*(1-pad*2);
+  var s=Math.min(availW/(bx1-bx0), availH/(by1-by0));
+  var ox=(W-(bx1-bx0)*s)/2, oy=((H-70)-(by1-by0)*s)/2+10;
+  function toScr(p){return [(p[0]-bx0)*s+ox,(p[1]-by0)*s+oy];}
+
+  screenPolys=raw.map(function(poly){return poly.map(toScr);});
+  VENUES.forEach(function(v){var p=toScr(proj(v.lon,v.lat));v.sx=p[0];v.sy=p[1];});
+  regionPts=REGIONS.map(function(r){var p=toScr(proj(r.lon,r.lat));return{t:r.t,x:p[0],y:p[1]};});
+  routePts=VENUES.map(function(v){return[v.sx,v.sy];});
+
+  /* rasterize dots on a screen-space grid */
+  dots=[];
+  var step=Math.max(4,Math.min(6,W/270));
+  var boxes=screenPolys.map(function(poly){
+    var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    poly.forEach(function(p){x0=Math.min(x0,p[0]);y0=Math.min(y0,p[1]);x1=Math.max(x1,p[0]);y1=Math.max(y1,p[1]);});
+    return[x0,y0,x1,y1];
+  });
+  minX=1e9;maxX=-1e9;
+  for(var gy=0;gy<H;gy+=step){
+    for(var gx=0;gx<W;gx+=step){
+      var inside=false;
+      for(var i=0;i<screenPolys.length && !inside;i++){
+        var b=boxes[i];
+        if(gx<b[0]||gx>b[2]||gy<b[1]||gy>b[3])continue;
+        inside=pip(gx,gy,screenPolys[i]);
+      }
+      if(inside){
+        var nd=1e9;
+        for(var k=0;k<VENUES.length;k++){
+          var dx=gx-VENUES[k].sx, dy=gy-VENUES[k].sy;
+          var d=dx*dx+dy*dy; if(d<nd)nd=d;
+        }
+        dots.push({x:gx,y:gy,ph:Math.random()*6.28,sp:.5+Math.random(),
+          near:Math.max(0,1-Math.sqrt(nd)/130)});
+        minX=Math.min(minX,gx);maxX=Math.max(maxX,gx);
+      }
+    }
+  }
+  /* land mask: knocks the sea-flow trails out over land for a crisp coastline */
+  maskCv.width=W;maskCv.height=H;
+  mctx.fillStyle="#000";
+  screenPolys.forEach(function(poly){
+    mctx.beginPath();
+    mctx.moveTo(poly[0][0],poly[0][1]);
+    for(var i=1;i<poly.length;i++)mctx.lineTo(poly[i][0],poly[i][1]);
+    mctx.closePath();mctx.fill();
+  });
+}
+function pip(x,y,poly){
+  var c=false;
+  for(var i=0,j=poly.length-1;i<poly.length;j=i++){
+    var xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+    if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) c=true;
+  }
+  return c;
+}
+
+/* ===== sea flow layer: fBm(fractal) noise streamlines with fading trails ===== */
+var flowCv=document.createElement("canvas"), fctx=flowCv.getContext("2d");
+var maskCv=document.createElement("canvas"), mctx=maskCv.getContext("2d");
+var flows=[];
+var PERM=(function(){var r=mulberry32(1234),p=new Uint8Array(512);for(var i=0;i<512;i++)p[i]=Math.floor(r()*256);return p;})();
+function vnoise(x,y){
+  var xi=Math.floor(x),yi=Math.floor(y);
+  var xf=x-xi,yf=y-yi;
+  xi&=255;yi&=255;
+  var u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+  var a=PERM[(PERM[xi]+yi)&255]/255, b=PERM[(PERM[(xi+1)&255]+yi)&255]/255;
+  var c=PERM[(PERM[xi]+yi+1)&255]/255, d=PERM[(PERM[(xi+1)&255]+yi+1)&255]/255;
+  return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
+}
+function fbm(x,y){
+  var s=0,amp=.5,f=1;
+  for(var o=0;o<4;o++){s+=amp*vnoise(x*f,y*f);amp*=.5;f*=2.03;}
+  return s;
+}
+function newFlowP(p){
+  p.x=Math.random()*W;p.y=Math.random()*H;
+  p.px=p.x;p.py=p.y;
+  p.life=160+Math.random()*260;
+  var r=Math.random();
+  p.tone=r<.14?"rgba(120,220,255,0.085)":r<.55?"rgba(56,140,178,0.10)":"rgba(30,84,114,0.11)";
+  return p;
+}
+function seedFlow(){
+  flowCv.width=W;flowCv.height=H;
+  flows=[];
+  var n=Math.round(W*H/2800);
+  for(var i=0;i<n;i++)flows.push(newFlowP({}));
+}
+function drawFlow(t){
+  fctx.globalCompositeOperation="destination-out";
+  fctx.fillStyle="rgba(0,0,0,0.05)";
+  fctx.fillRect(0,0,W,H);
+  fctx.globalCompositeOperation="source-over";
+  fctx.lineWidth=1;
+  var sc=0.0017, tt=t*0.000028;
+  for(var i=0;i<flows.length;i++){
+    var p=flows[i];
+    var ang=fbm(p.x*sc+tt,p.y*sc-tt*0.6)*11.3;
+    p.px=p.x;p.py=p.y;
+    p.x+=Math.cos(ang)*0.85;p.y+=Math.sin(ang)*0.85;
+    if(--p.life<=0||p.x<-4||p.x>W+4||p.y<-4||p.y>H+4){newFlowP(p);continue;}
+    fctx.strokeStyle=p.tone;
+    fctx.beginPath();fctx.moveTo(p.px,p.py);fctx.lineTo(p.x,p.y);fctx.stroke();
+  }
+  fctx.globalCompositeOperation="destination-out";
+  fctx.drawImage(maskCv,0,0);
+  fctx.globalCompositeOperation="source-over";
+}
+
+/* ================= camera ================= */
+var cam={x:0,y:0,s:1}, camT={x:0,y:0,s:1};
+function resetCamTarget(){camT={x:W/2,y:H/2,s:1};}
+var mouse={x:-999,y:-999};
+function camPos(x,y){
+  var px=(mouse.x-W/2)/W||0, py=(mouse.y-H/2)/H||0;
+  var par=(cam.s<1.4 && !reduced)?1:0;
+  return [(x-cam.x)*cam.s+W/2 - px*10*par, (y-cam.y)*cam.s+H/2 - py*8*par];
+}
+
+/* ================= state ================= */
+var t0=performance.now();
+var introDone=reduced;
+var INTRO_DOTS=1100, INTRO_V0=1300, INTRO_VSTEP=80;
+var hoverV=null, panelOpen=false, currentV=null;
+
+/* ================= render ================= */
+function render(now){
+  var t=now-t0;
+  cam.x+=(camT.x-cam.x)*.085; cam.y+=(camT.y-cam.y)*.085; cam.s+=(camT.s-cam.s)*.085;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+
+  /* sea flow (fades out as the camera dives into a venue) */
+  if(!reduced){
+    drawFlow(t);
+    var fa=Math.max(0,Math.min(1,1.55-cam.s*0.55));
+    if(fa>0){ctx.globalAlpha=fa;ctx.drawImage(flowCv,0,0,W,H);ctx.globalAlpha=1;}
+  }
+
+  /* land dots */
+  for(var i=0;i<dots.length;i++){
+    var dt=dots[i];
+    var a;
+    if(!introDone){
+      var delay=(1-(dt.x-minX)/(maxX-minX))*INTRO_DOTS;
+      a=Math.max(0,Math.min(1,(t-delay)/450));
+      if(a<=0)continue;
+    }else a=1;
+    var tw=reduced?1:(0.72+0.28*Math.sin(t*0.0011*dt.sp+dt.ph));
+    var base=0.22+dt.near*0.34;
+    var p=camPos(dt.x,dt.y);
+    var r=(1.0+dt.near*0.8)*Math.min(cam.s,3.0);
+    ctx.globalAlpha=base*tw*a;
+    ctx.drawImage(dt.near>0.35?sprNear:sprFar,p[0]-r,p[1]-r,r*2,r*2);
+  }
+  ctx.globalAlpha=1;
+
+  /* region labels */
+  if(cam.s<1.8){
+    ctx.font="10px ui-monospace,Consolas,monospace";
+    ctx.fillStyle="rgba(107,129,153,.34)";
+    ctx.textAlign="center";
+    for(var i=0;i<regionPts.length;i++){
+      var rp=regionPts[i], p=camPos(rp.x,rp.y);
+      var spaced=rp.t.split("").join(" ");
+      ctx.fillText(spaced,p[0],p[1]);
+    }
+  }
+
+  /* circuit route 01→24 */
+  if(introDone && cam.s<2.2){
+    ctx.strokeStyle="rgba(92,214,255,.10)";
+    ctx.lineWidth=1;
+    ctx.setLineDash([3,7]);
+    ctx.lineDashOffset=reduced?0:-t*0.012;
+    ctx.beginPath();
+    var p0=camPos(routePts[0][0],routePts[0][1]);
+    ctx.moveTo(p0[0],p0[1]);
+    for(var i=1;i<routePts.length;i++){
+      var pa=camPos(routePts[i-1][0],routePts[i-1][1]);
+      var pb=camPos(routePts[i][0],routePts[i][1]);
+      ctx.quadraticCurveTo(pa[0],pa[1],(pa[0]+pb[0])/2,(pa[1]+pb[1])/2);
+    }
+    var pl=camPos(routePts[23][0],routePts[23][1]);
+    ctx.lineTo(pl[0],pl[1]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /* venue beacons */
+  var litCount=0;
+  ctx.textAlign="left";
+  for(var i=0;i<VENUES.length;i++){
+    var v=VENUES[i];
+    var lit=introDone || t>INTRO_V0+i*INTRO_VSTEP;
+    if(!lit)continue;
+    litCount++;
+    var born=INTRO_V0+i*INTRO_VSTEP;
+    var age=introDone?9999:(t-born);
+    var pop=Math.min(1,age/380);
+    var open=OPEN_IDS.indexOf(v.id)>=0;
+    var hov=(hoverV===v);
+    var p=camPos(v.sx,v.sy);
+    var col=open?"255,180,84":"92,214,255";
+
+    /* ping rings */
+    if(!reduced){
+      var period=open?2200:3600;
+      var ph=((t+i*777)%period)/period;
+      var rr=4+ph*(open?26:18);
+      ctx.globalAlpha=(1-ph)*(open?.5:.28)*pop;
+      ctx.strokeStyle="rgba("+col+",1)";
+      ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(p[0],p[1],rr,0,6.283);ctx.stroke();
+    }
+    /* birth burst */
+    if(age<600){
+      var bp=age/600;
+      ctx.globalAlpha=(1-bp)*.8;
+      ctx.strokeStyle="rgba("+col+",1)";
+      ctx.beginPath();ctx.arc(p[0],p[1],4+bp*30,0,6.283);ctx.stroke();
+    }
+    /* glow + core */
+    var cr=hov?5:3.2;
+    var g=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],cr*4);
+    g.addColorStop(0,"rgba("+col+","+(0.5*pop)+")");
+    g.addColorStop(1,"rgba("+col+",0)");
+    ctx.globalAlpha=1;
+    ctx.fillStyle=g;
+    ctx.beginPath();ctx.arc(p[0],p[1],cr*4,0,6.283);ctx.fill();
+    ctx.fillStyle=hov?"#ffffff":"rgba("+col+","+(0.95*pop)+")";
+    ctx.beginPath();ctx.arc(p[0],p[1],cr,0,6.283);ctx.fill();
+
+    /* number label */
+    ctx.globalAlpha=pop*(hov?1:.75);
+    ctx.font="9px ui-monospace,Consolas,monospace";
+    ctx.fillStyle=hov?"#ffffff":"rgba("+col+",.9)";
+    var no=(v.id<10?"0":"")+v.id;
+    ctx.fillText(no,p[0]+v.ld[0],p[1]+v.ld[1]+3);
+    /* name label on hover or zoom */
+    if(hov||cam.s>2.4){
+      ctx.font="700 12px 'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif";
+      ctx.fillStyle="#eaf3fa";
+      ctx.fillText(v.name,p[0]+v.ld[0]+16,p[1]+v.ld[1]+4);
+    }
+    ctx.globalAlpha=1;
+  }
+
+  /* intro status */
+  if(!introDone){
+    if(litCount<24){
+      statusEl.textContent="SYNCING VENUES "+(litCount<10?"0":"")+litCount+"/24";
+    }else if(t>INTRO_V0+23*INTRO_VSTEP+700){
+      introDone=true;
+      statusEl.textContent="ALL 24 VENUES ONLINE ── SELECT A VENUE";
+    }
+  }
+  requestAnimationFrame(render);
+}
+
+/* ================= interaction ================= */
+var statusEl=document.getElementById("statustext");
+var hovercard=document.getElementById("hovercard");
+
+function venueAt(mx,my){
+  var best=null,bd=18*18;
+  for(var i=0;i<VENUES.length;i++){
+    var p=camPos(VENUES[i].sx,VENUES[i].sy);
+    var dx=mx-p[0],dy=my-p[1],d=dx*dx+dy*dy;
+    if(d<bd){bd=d;best=VENUES[i];}
+  }
+  return best;
+}
+canvas.addEventListener("mousemove",function(e){
+  mouse.x=e.clientX;mouse.y=e.clientY;
+  if(panelOpen)return;
+  var v=venueAt(e.clientX,e.clientY);
+  setHover(v,e.clientX,e.clientY);
+});
+function setHover(v,mx,my){
+  hoverV=v;
+  canvas.style.cursor=v?"pointer":"default";
+  if(v){
+    var open=OPEN_IDS.indexOf(v.id)>=0;
+    hovercard.innerHTML=
+      '<div class="no">VENUE '+(v.id<10?"0":"")+v.id+(open?' ── <span style="color:var(--amber)">本日開催</span>':' ── 非開催')+'</div>'+
+      '<div class="nm">'+v.name+'<small>'+v.en+'</small></div>'+
+      '<div class="tr">'+v.water+(v.night?"・ナイター":"")+' ── '+v.trait+'</div>'+
+      '<div class="enter">CLICK TO ENTER ▸</div>';
+    hovercard.classList.add("on");
+    var cw=hovercard.offsetWidth||230;
+    var x=(mx!==undefined?mx:camPos(v.sx,v.sy)[0])+18;
+    var y=(my!==undefined?my:camPos(v.sx,v.sy)[1])-10;
+    if(x+cw>W-16)x=x-cw-36;
+    if(y+150>H-70)y=H-230;
+    if(y<12)y=12;
+    hovercard.style.left=x+"px";hovercard.style.top=y+"px";
+  }else{
+    hovercard.classList.remove("on");
+  }
+}
+canvas.addEventListener("mouseleave",function(){setHover(null);});
+canvas.addEventListener("click",function(e){
+  if(!introDone){introDone=true;statusEl.textContent="ALL 24 VENUES ONLINE ── SELECT A VENUE";return;}
+  if(panelOpen)return;
+  var v=venueAt(e.clientX,e.clientY);
+  if(v)enterVenue(v);
+});
+window.addEventListener("keydown",function(e){
+  if(e.key==="Escape"&&panelOpen)closeVenue();
+});
+var resizeTm=null;
+window.addEventListener("resize",function(){
+  clearTimeout(resizeTm);
+  resizeTm=setTimeout(function(){
+    buildMap();seedFlow();
+    if(panelOpen&&currentV){cam.x=camT.x=currentV.sx;cam.y=camT.y=currentV.sy;}
+    else resetCamTarget();
+  },150);
+});
+
+/* ================= wallet ================= */
+var KEY="nemui_hall_pt";
+var pt=parseInt(localStorage.getItem(KEY)||"1000",10);
+if(isNaN(pt))pt=1000;
+var ptEl=document.getElementById("pt");
+function fmt(n){return n.toLocaleString("ja-JP");}
+var toastEl=document.getElementById("toast"),toastTm=null;
+function toast(msg){
+  toastEl.textContent=msg;toastEl.classList.add("on");
+  clearTimeout(toastTm);toastTm=setTimeout(function(){toastEl.classList.remove("on");},2600);
+}
+function renderPt(){
+  ptEl.textContent=fmt(pt);
+  localStorage.setItem(KEY,String(pt));
+  if(pt<100){pt+=500;toast("救済ボーナス +500PT ── 遊技は計画的に");setTimeout(renderPt,50);}
+}
+
+/* ================= venue bar ================= */
+var bar=document.getElementById("venuebar");
+document.getElementById("opencount").textContent=OPEN_IDS.length;
+VENUES.forEach(function(v){
+  var b=document.createElement("button");
+  b.className="vchip"+(OPEN_IDS.indexOf(v.id)>=0?" open":"");
+  b.innerHTML='<span class="dot"></span><span class="cno">'+(v.id<10?"0":"")+v.id+'</span>'+v.name;
+  b.addEventListener("mouseenter",function(){if(!panelOpen)setHover(v,camPos(v.sx,v.sy)[0],camPos(v.sx,v.sy)[1]);});
+  b.addEventListener("mouseleave",function(){if(!panelOpen)setHover(null);});
+  b.addEventListener("click",function(){if(!panelOpen)enterVenue(v);});
+  bar.appendChild(b);
+});
+
+/* ================= seeded race gen ================= */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+var LNAMES=["轟","早乙女","神楽","氷川","五十嵐","真加田","隼田","波多野","白鳥","荒磯","御手洗","九十九","鷹取","汐見","峰岸","灘","東雲","不知火","綾小路","燕"];
+var FNAMES=["勇人","潤","鉄平","岳","誠","昇","竜次","一馬","蓮","秀樹","大和","慎","光","剛","涼太","純平","司","悠"];
+function genRace(v){
+  var rng=mulberry32(v.id*9973+77);
+  var used={};
+  var laneF=[1+2.4*v.inStr, 1.25, 1.15, 1.05+0.5*(1-v.inStr), 0.8+0.3*(1-v.inStr), 0.62+0.3*(1-v.inStr)];
+  var racers=[];
+  for(var i=0;i<6;i++){
+    var ln,fn,nm;
+    do{ln=LNAMES[Math.floor(rng()*LNAMES.length)];fn=FNAMES[Math.floor(rng()*FNAMES.length)];nm=ln+" "+fn;}while(used[nm]);
+    used[nm]=1;
+    var cr=rng();
+    var cls=cr<.2?"A1":cr<.45?"A2":cr<.85?"B1":"B2";
+    var skill=(cls==="A1"?6.6:cls==="A2"?5.4:cls==="B1"?4.2:3.2)+rng()*1.4;
+    var s=Math.exp(skill*.5)*laneF[i]*(0.85+rng()*.3);
+    racers.push({lane:i+1,name:nm,cls:cls,win:skill.toFixed(2),
+      st:"."+String(12+Math.floor(rng()*8)),s:s});
+  }
+  var tot=racers.reduce(function(a,r){return a+r.s;},0);
+  racers.forEach(function(r){r.p=r.s/tot;r.odds=Math.max(1.1,Math.round(0.75/r.p*10)/10);});
+  return racers;
+}
+
+/* ================= venue panel ================= */
+var panel=document.getElementById("panel");
+var tbody=document.getElementById("p-tbody");
+var buyBtn=document.getElementById("buy");
+var betmsg=document.getElementById("betmsg");
+var rmsg=document.getElementById("rmsg");
+var rtrack=document.getElementById("rtrack");
+var deadlineEl=document.getElementById("p-deadline");
+var stakeBox=document.getElementById("stake");
+var LANE_C={1:["#f2f2f2","#10151c"],2:["#15181d","#e8e8e8"],3:["#d8383a","#fff"],4:["#2470c9","#fff"],5:["#e8c231","#141414"],6:["#2fa864","#fff"]};
+var racers=[],selLane=0,stakeVal=100,racing=false,boats=[],ddTimer=null,ddSec=0;
+
+function enterVenue(v){
+  currentV=v;
+  setHover(null);
+  camT={x:v.sx,y:v.sy,s:4.6};
+  statusEl.textContent="ENTERING VENUE "+(v.id<10?"0":"")+v.id+" ── "+v.en;
+  setTimeout(function(){
+    buildPanel(v);
+    panel.classList.add("open");
+    panelOpen=true;
+  },620);
+}
+function closeVenue(){
+  panel.classList.remove("open");
+  panelOpen=false;currentV=null;
+  clearInterval(ddTimer);
+  resetCamTarget();
+  statusEl.textContent="ALL 24 VENUES ONLINE ── SELECT A VENUE";
+}
+document.getElementById("backbtn").addEventListener("click",closeVenue);
+
+function buildPanel(v){
+  var open=OPEN_IDS.indexOf(v.id)>=0;
+  document.getElementById("p-no").textContent=(v.id<10?"0":"")+v.id;
+  document.getElementById("p-name").childNodes[0].nodeValue=v.name;
+  document.getElementById("p-en").textContent=v.en;
+  document.getElementById("p-trait").textContent=v.trait;
+  document.getElementById("p-race").innerHTML=open?'第12R 予選 <span>── 本日開催</span>':'EXHIBITION RACE ── 非開催日';
+  var chips=document.getElementById("p-chips");
+  chips.innerHTML='<span class="tag water">'+v.water+'</span>'+
+    (v.night?'<span class="tag night">ナイター</span>':'')+
+    (open?'<span class="tag open-t">本日開催</span>':'<span class="tag">非開催</span>');
+  document.getElementById("p-instr").textContent=Math.round(v.inStr*100)+"%";
+  var g=document.getElementById("p-gauge");
+  g.style.width="0%";
+  requestAnimationFrame(function(){requestAnimationFrame(function(){g.style.width=(v.inStr*100)+"%";});});
+
+  /* race table */
+  racers=genRace(v);selLane=0;racing=false;
+  buyBtn.disabled=true;betmsg.textContent="艇を選択";
+  rmsg.className="rmsg";rmsg.textContent="出走表から1艇選んで単勝を購入。オッズ×賭けPTが払戻し。";
+  tbody.innerHTML="";
+  racers.forEach(function(r){
+    var tr=document.createElement("tr");
+    tr.className="row";
+    tr.innerHTML='<td><span class="lane l'+r.lane+'">'+r.lane+'</span></td>'+
+      '<td>'+r.name+'<span class="kcls">'+r.cls+'</span></td>'+
+      '<td class="num r hide-sp">'+r.win+'</td>'+
+      '<td class="num r hide-sp">'+r.st+'</td>'+
+      '<td class="num r"><span class="odds-v">'+r.odds.toFixed(1)+'</span></td>';
+    tr.addEventListener("click",function(){
+      if(racing)return;
+      selLane=r.lane;
+      Array.prototype.forEach.call(tbody.children,function(x,xi){x.classList.toggle("sel",xi===r.lane-1);});
+      buyBtn.disabled=false;
+      betmsg.textContent=r.lane+"号艇 "+r.name+" ── 単勝 "+r.odds.toFixed(1)+"倍";
+    });
+    tbody.appendChild(tr);
+  });
+
+  /* track */
+  rtrack.innerHTML='<div class="goal"></div>';
+  for(var i=1;i<6;i++){
+    var ll=document.createElement("div");ll.className="lane-line";
+    ll.style.top=(i*30+2)+"px";rtrack.appendChild(ll);
+  }
+  boats=racers.map(function(r,i){
+    var b=document.createElement("div");
+    b.className="rboat";
+    b.style.background=LANE_C[r.lane][0];b.style.color=LANE_C[r.lane][1];
+    b.style.top=(7+i*30)+"px";
+    b.innerHTML='<span>'+r.lane+'</span><i>▸</i>';
+    rtrack.appendChild(b);
+    return b;
+  });
+
+  /* deadline */
+  clearInterval(ddTimer);
+  ddSec=180+Math.floor(Math.random()*300);
+  renderDeadline();
+  ddTimer=setInterval(function(){
+    ddSec--;
+    if(ddSec<=0)ddSec=300+Math.floor(Math.random()*180);
+    renderDeadline();
+  },1000);
+}
+function renderDeadline(){
+  var m=Math.floor(ddSec/60),s=ddSec%60;
+  deadlineEl.innerHTML='締切まで <b>'+(m<10?"0":"")+m+":"+(s<10?"0":"")+s+"</b>";
+  deadlineEl.classList.toggle("hot",ddSec<60);
+}
+
+stakeBox.addEventListener("click",function(e){
+  var b=e.target.closest("button");
+  if(!b||racing)return;
+  stakeVal=parseInt(b.dataset.v,10);
+  Array.prototype.forEach.call(stakeBox.children,function(x){x.classList.toggle("on",x===b);});
+});
+
+buyBtn.addEventListener("click",function(){
+  if(racing||!selLane)return;
+  if(pt<stakeVal){rmsg.className="rmsg lose";rmsg.textContent="POINT不足 ── 残高"+fmt(pt)+"PT。救済ボーナスを待て。";return;}
+  pt-=stakeVal;renderPt();
+  racing=true;buyBtn.disabled=true;
+  var picked=racers[selLane-1];
+  rmsg.className="rmsg";
+  rmsg.textContent="購入完了: "+selLane+"号艇 単勝 "+fmt(stakeVal)+"PT ── ピットアウト。";
+  var prog=[0,0,0,0,0,0];
+  var maxP=Math.max.apply(null,racers.map(function(r){return r.p;}));
+  var base=racers.map(function(r){return 0.0028*(0.7+0.6*(r.p/maxP));});
+  var finished=[];
+  var trackW=rtrack.clientWidth;
+  function step(){
+    for(var i=0;i<6;i++){
+      if(prog[i]>=1)continue;
+      prog[i]+=base[i]*(0.55+Math.random()*0.9);
+      if(prog[i]>=1){prog[i]=1;finished.push(i);}
+      boats[i].style.left=(prog[i]*(trackW-90))+"px";
+    }
+    if(finished.length<1){requestAnimationFrame(step);}
+    else{
+      var winner=racers[finished[0]];
+      var won=winner.lane===selLane;
+      if(won){
+        var payout=Math.floor(stakeVal*picked.odds);
+        pt+=payout;
+        rmsg.className="rmsg win";
+        rmsg.textContent="1着 "+winner.lane+"号艇 "+winner.name+" ── 的中 +"+fmt(payout)+"PT";
+      }else{
+        rmsg.className="rmsg lose";
+        rmsg.textContent="1着 "+winner.lane+"号艇 "+winner.name+" ── "+selLane+"号艇は届かず。";
+      }
+      renderPt();
+      setTimeout(function(){
+        boats.forEach(function(b){b.style.left="0px";});
+        racing=false;buyBtn.disabled=(selLane===0);
+      },1500);
+    }
+  }
+  boats.forEach(function(b){b.style.left="0px";});
+  requestAnimationFrame(step);
+});
+
+/* ================= boot ================= */
+buildMap();seedFlow();resetCamTarget();
+cam={x:W/2,y:H/2,s:1};
+renderPt();
+requestAnimationFrame(render);
+})();
+</script>

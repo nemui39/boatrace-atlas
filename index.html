@@ -1,4 +1,4 @@
-<title>二十四場 — BOATRACE ATLAS(モック)</title>
+<title>BOTRACE — TRIFECTA ENGINE</title>
 <style>
   :root{
     --bg:#04070d;
@@ -38,10 +38,10 @@
   #brand{top:28px;left:32px;}
   #brand .eyebrow{
     font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spacing:.38em;
-    color:var(--cyan);opacity:.85;margin-bottom:10px;
+    color:var(--cyan);opacity:.85;margin:10px 0 6px;
   }
   #brand h1{
-    margin:0;font-size:clamp(34px,4.6vw,54px);font-weight:900;letter-spacing:.14em;line-height:1;
+    margin:0;font-size:clamp(34px,4.6vw,54px);font-weight:900;letter-spacing:.34em;line-height:1;
     color:var(--ink);
   }
   #brand .sub{margin-top:10px;font-size:12.5px;color:var(--mut);letter-spacing:.2em;}
@@ -179,6 +179,20 @@
   .g{color:var(--win);} .r{color:var(--lose);} .a{color:var(--amber);}
   .verdict{font-size:15px;font-weight:900;letter-spacing:.1em;margin-bottom:10px;}
   .pipe-note{font-size:11px;color:var(--mut2);line-height:1.8;border-top:1px dashed var(--line);padding-top:14px;}
+  .live-head{display:flex;align-items:center;gap:14px;margin:0 0 12px;}
+  .lb{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.24em;
+    padding:4px 10px;border:1px solid var(--line);color:var(--mut);}
+  .lb.on{color:#06222f;background:var(--win);border-color:var(--win);}
+  #live-sum{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);letter-spacing:.06em;}
+  #live-feed{margin-bottom:10px;max-height:300px;overflow-y:auto;border:1px solid var(--line);}
+  #live-feed:empty{display:none;}
+  .lf-row{display:flex;gap:12px;align-items:center;padding:7px 12px;
+    border-bottom:1px solid rgba(20,36,58,.6);font-size:12px;}
+  .lf-t{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--amber);width:44px;flex:0 0 auto;}
+  .lf-v{width:96px;flex:0 0 auto;}
+  .lf-e{font-family:ui-monospace,Consolas,monospace;font-size:9px;color:var(--mut2);width:64px;flex:0 0 auto;overflow:hidden;}
+  .lf-verdict{flex:1;font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);}
+  .lf-pnl{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:70px;text-align:right;flex:0 0 auto;}
   .stmini{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.9;}
 
   /* ============ venue panel ============ */
@@ -349,9 +363,9 @@
   <canvas id="map"></canvas>
 
   <div class="hud" id="brand">
-    <div class="eyebrow">BOATRACE ATLAS ── PLAYABLE PORTFOLIO</div>
-    <h1>二十四場</h1>
-    <div class="sub">全国24ボートレース場 ── 選んで、入って、賭ける。</div>
+    <h1>BOTRACE</h1>
+    <div class="eyebrow">── TRIFECTA ENGINE ──</div>
+    <div class="sub">競艇AI実運用ボット・ライブモニター</div>
   </div>
 
   <div class="hud" id="walletbox">
@@ -389,6 +403,9 @@
       <h2>実運用パイプライン・トレース</h2>
       <p class="pipe-sub">本番で毎日走っている競艇3連単予測システムの実ログ(2026-05-29 / エンジン t3w6)。
         出走表の取得からモデル推論・EVゲート・ベット・精算まで、以下の数値はすべて当日の生データそのまま。</p>
+      <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
+      <div id="live-feed"></div>
+      <div class="pipe-eyebrow" style="margin-top:26px">SHOWCASE ── 2026-05-29 実ログ抜粋4レース</div>
       <div class="pipe-races" id="pipe-races"></div>
       <div id="pipe-stages"></div>
       <p class="pipe-note">※ モデル本体・特徴量定義・重みは非公開。表示しているのは実運用が各レースで記録した診断ログのみ。
@@ -1444,8 +1461,47 @@ function renderPipe(){
     el.style.animationDelay=(i*110)+"ms";
   });
 }
-function openPipe(){pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");renderPipe();}
-function closePipe(){pipeOpen=false;pipeEl.classList.remove("open");pipebtn.classList.remove("on");}
+var liveTimer=null;
+function loadLive(){
+  fetch("data/live_today.json",{cache:"no-store"}).then(function(r){
+    if(!r.ok)throw 0;return r.json();
+  }).then(function(d){
+    var badge=document.getElementById("live-badge");
+    badge.textContent="\u25cf LIVE "+d.date.slice(4,6)+"/"+d.date.slice(6);
+    badge.className="lb on";
+    document.getElementById("live-sum").textContent=
+      d.n_processed+"/"+d.n_scheduled+" races \u2500 bet "+d.n_bet_races+
+      " \u2500 PnL "+(d.total.pnl>=0?"+":"")+d.total.pnl.toLocaleString("ja-JP")+
+      "\u5186 \u2500 upd "+d.generated_at.slice(11,16);
+    var rows=d.races.slice().reverse().slice(0,60).map(function(r){
+      var v=r.bets.length?
+        '<span class="g">BET '+r.bets.map(function(b){return fmtK(b.k)+"("+b.ev+")";}).join(" ")+"</span>":
+        "\u898b\u9001\u308a "+(GATE_JP[r.verdict]||r.verdict)+(r.max_ev?" / maxEV "+r.max_ev:"");
+      var pnl=(r.settled&&r.pnl!=null)?
+        '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.pnl>=0?"+":"")+r.pnl+"</span>":
+        (r.bets.length?"\u7d50\u679c\u5f85\u3061":"");
+      return '<div class="lf-row"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
+        '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
+        '<span class="lf-e">'+r.eng+'</span>'+
+        '<span class="lf-verdict">'+v+'</span><span class="lf-pnl">'+pnl+"</span></div>";
+    }).join("");
+    document.getElementById("live-feed").innerHTML=rows||
+      '<div class="lf-row"><span class="lf-verdict">\u672c\u65e5\u306e\u51e6\u7406\u5f85\u3061 \u2500 \u521d\u56de\u7de0\u5207\u307e\u3067\u5f85\u6a5f\u4e2d ('+d.n_scheduled+'R\u4e88\u5b9a)</span></div>';
+  }).catch(function(){
+    var badge=document.getElementById("live-badge");
+    badge.className="lb";badge.textContent="REPLAY";
+    document.getElementById("live-sum").textContent=
+      "\u5f53\u65e5\u30d5\u30a3\u30fc\u30c9\u306a\u3057(\u3053\u306e\u74b0\u5883\u3067\u306f\u53d6\u5f97\u4e0d\u53ef) \u2500 \u4e0b\u306eSHOWCASE\u306f\u5b9f\u30ed\u30b0";
+  });
+}
+function openPipe(){
+  pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");renderPipe();
+  loadLive();clearInterval(liveTimer);liveTimer=setInterval(loadLive,60000);
+}
+function closePipe(){
+  pipeOpen=false;pipeEl.classList.remove("open");pipebtn.classList.remove("on");
+  clearInterval(liveTimer);
+}
 function togglePipe(){pipeOpen?closePipe():openPipe();}
 pipebtn.addEventListener("click",togglePipe);
 document.getElementById("pipeclose").addEventListener("click",closePipe);

@@ -466,7 +466,7 @@ function pip(x,y,poly){
   var c=false;
   for(var i=0,j=poly.length-1;i<poly.length;j=i++){
     var xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
-    if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) c=true;
+    if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c;
   }
   return c;
 }

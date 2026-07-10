@@ -1639,15 +1639,13 @@ function wlBody(a,nsec){
   var lines=[];
   sc.slice(0,Math.min(wlShown[id],due)).forEach(function(l){lines.push(wlLine(l.t,l.txt));});
   var p=PROC[id];
-  if(nsec>a.ds){
-    if(RB[id]){
-      var dl2=detailLines(id);
-      if(wlReveal[id]==null)wlReveal[id]=0;
-      dl2.slice(0,wlReveal[id]).forEach(function(l2){lines.push('<div class="dl">'+l2+"</div>");});
-      if(wlReveal[id]>=dl2.length&&p)
-        lines.push('<div><em>'+hhmmss(nsec)+'</em>'+(p.bet?'<span class="g">BET 確定'+(p.pnl!=null?" "+(p.pnl>=0?"+":"")+p.pnl+"円":"")+"</span>":"見送り 確定")+"</div>");
-    }else lines.push(wlLine(nsec,"結果同期待ち…"));
-  }
+  if(nsec>a.ds-70&&RB[id]){
+    var dl2=detailLines(id);
+    if(wlReveal[id]==null)wlReveal[id]=0;
+    dl2.slice(0,wlReveal[id]).forEach(function(l2){lines.push('<div class="dl">'+l2+"</div>");});
+    if(wlReveal[id]>=dl2.length&&p)
+      lines.push('<div><em>'+hhmmss(nsec)+'</em>'+(p.bet?'<span class="g">BET 確定'+(p.pnl!=null?" "+(p.pnl>=0?"+":"")+p.pnl+"円":"")+"</span>":"見送り 確定")+"</div>");
+  }else if(nsec>a.ds)lines.push(wlLine(nsec,"結果同期待ち…"));
   return lines.join("")+'<span class="cur"></span>';
 }
 function renderWorklog(nsec){
@@ -1769,7 +1767,7 @@ document.getElementById("pipeclose").addEventListener("click",closePipe);
 
 /* ================= boot ================= */
 buildMap();seedInk();resetCamTarget();
-loadLive();setInterval(loadLive,60000);setInterval(schedTick,1000);
+loadLive();setInterval(loadLive,20000);setInterval(schedTick,1000);
 /* typewriter: script lines pre-deadline, real-number burst after sync (140ms/line) */
 setInterval(function(){
   var el=document.getElementById("worklog");
@@ -1795,7 +1793,7 @@ setInterval(function(){
       b.scrollTop=b.scrollHeight;
       return;
     }
-    if(nsec>a.ds&&RB[id]){
+    if(nsec>a.ds-70&&RB[id]){
       if(wlReveal[id]==null)wlReveal[id]=0;
       var dl2=detailLines(id);
       if(wlReveal[id]<dl2.length){

@@ -5,5 +5,5 @@
 cd "$(dirname "$0")/.." || exit 1
 while true; do
   python3 tools/export_live_today.py
-  sleep 180
+  sleep 60
 done

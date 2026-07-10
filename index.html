@@ -168,7 +168,7 @@
     font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.26em;color:var(--ink);}
   .vl-head a{color:var(--cyan);text-decoration:none;letter-spacing:.1em;}
   .vl-head a:hover{text-decoration:underline;}
-  #venue-live iframe{width:100%;height:780px;border:0;display:block;background:#000;overflow:hidden;}
+  #venue-live iframe{width:100%;height:880px;border:0;display:block;background:#000;overflow:hidden;}
   .pipe-cols>div:last-child>*{max-width:767px;}
   #venue-info{padding:6px 4px;}
   #venue-info:empty{display:none;}
@@ -1642,6 +1642,20 @@ function renderSys(d){
   document.getElementById("syslamps").innerHTML=t.join("");
 }
 var liveSel=null,vlJcd=null,viJcd=null;
+/* 公式サイト「最近3ヶ月」の1コース1着率 (2026-07-10取得、手動更新) */
+var REAL_IN={1:51.9,2:40.0,3:44.7,4:46.5,5:58.3,6:55.4,7:53.5,8:57.7,9:57.8,10:50.1,11:54.8,12:59.6,13:62.9,14:51.2,15:56.5,16:55.1,17:60.0,18:63.4,19:63.3,20:57.6,21:61.1,22:62.6,23:58.3,24:57.3};
+var WMAP_SVG='<svg viewBox="0 0 300 130" style="width:100%;margin-top:12px">'+
+'<rect x="10" y="14" width="280" height="100" fill="none" stroke="rgba(92,214,255,.3)" stroke-width="1"/>'+
+'<circle cx="62" cy="64" r="5" fill="none" stroke="#5cd6ff" stroke-width="1.5"/>'+
+'<circle cx="238" cy="64" r="5" fill="none" stroke="#5cd6ff" stroke-width="1.5"/>'+
+'<line x1="238" y1="64" x2="290" y2="114" stroke="rgba(92,214,255,.35)" stroke-dasharray="4 4"/>'+
+'<line x1="238" y1="14" x2="238" y2="114" stroke="rgba(255,180,84,.4)" stroke-dasharray="3 5"/>'+
+'<text x="52" y="50" font-size="9" fill="#6b8199" font-family="monospace">2M</text>'+
+'<text x="228" y="50" font-size="9" fill="#6b8199" font-family="monospace">1M</text>'+
+'<text x="243" y="24" font-size="8" fill="#8a6a2e" font-family="monospace">START</text>'+
+'<text x="255" y="110" font-size="8" fill="#6b8199" font-family="monospace">PIT</text>'+
+'<path d="M 30 64 L 62 40" fill="none" stroke="rgba(92,214,255,.2)"/>'+
+'</svg>';
 function nextRaceHTML(sc){
   var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">NEXT RACE ── '+sc.v+" "+sc.rno+"R ── 締切 "+sc.dl+"</div>";
   var b="";
@@ -1677,10 +1691,10 @@ function renderVenueInfo(jcd){
       (vv.night?'<span class="tag night">ナイター</span>':"")+
       (open?'<span class="tag open-t">本日開催</span>':'<span class="tag">非開催</span>')+'</div>'+
     '<p class="v-trait">'+vv.trait+'</p>'+
-    '<div class="gauge-lbl"><span>イン信頼度 / LANE-1 TRUST</span><span class="num">'+Math.round(vv.inStr*100)+'%</span></div>'+
-    '<div class="gauge"><i style="width:'+(vv.inStr*100)+'%"></i></div>'+
-    '<p class="v-note">水面メモ・イン率は公式データでの差し替えを準備中。'+
-    '<a href="https://www.boatrace.jp/owpc/pc/data/stadium?jcd='+jcd+'" target="_blank" rel="noopener" style="color:var(--cyan)">公式の場データ ↗</a></p>';
+    '<div class="gauge-lbl"><span>1コース1着率 / 直近3ヶ月</span><span class="num">'+(REAL_IN[vv.id]!=null?REAL_IN[vv.id].toFixed(1):Math.round(vv.inStr*100))+'%</span></div>'+
+    '<div class="gauge"><i style="width:'+(REAL_IN[vv.id]!=null?REAL_IN[vv.id]:vv.inStr*100)+'%"></i></div>'+
+    '<p class="v-note">1着率は公式サイト「最近3ヶ月のデータ」より。'+
+    '<a href="https://www.boatrace.jp/owpc/pc/data/stadium?jcd='+jcd+'" target="_blank" rel="noopener" style="color:var(--cyan)">公式の場データ ↗</a></p>'+WMAP_SVG;
 }
 function updateVenueLive(jcd,name){
   var el=document.getElementById("venue-live");

@@ -224,7 +224,9 @@
   #live-feed{margin-bottom:10px;max-height:300px;overflow-y:auto;border:1px solid var(--line);}
   #live-feed:empty{display:none;}
   .lf-row{display:flex;gap:12px;align-items:center;padding:7px 12px;
-    border-bottom:1px solid rgba(20,36,58,.6);font-size:12px;}
+    border-bottom:1px solid rgba(20,36,58,.6);font-size:12px;cursor:pointer;}
+  .lf-row:hover{background:rgba(92,214,255,.05);}
+  .lf-row.on{background:rgba(92,214,255,.09);box-shadow:inset 2px 0 0 var(--cyan);}
   .lf-t{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--amber);width:44px;flex:0 0 auto;}
   .lf-v{width:96px;flex:0 0 auto;}
   .lf-e{font-family:ui-monospace,Consolas,monospace;font-size:9px;color:var(--mut2);width:64px;flex:0 0 auto;overflow:hidden;}
@@ -453,9 +455,7 @@
         出走表の取得からモデル推論・EVゲート・ベット・精算まで、以下の数値はすべて当日の生データそのまま。</p>
       <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
       <div id="live-feed"></div>
-      <div class="pipe-eyebrow" style="margin-top:26px">SHOWCASE ── 2026-05-29 実ログ抜粋4レース</div>
-      <div class="pipe-races" id="pipe-races"></div>
-      <div id="pipe-stages"></div>
+      <div id="live-detail"></div>
       <p class="pipe-note">※ モデル本体・特徴量定義・重みは非公開。表示しているのは実運用が各レースで記録した診断ログのみ。
         TrueSkill=選手・コース別レーティング / s値=艇別強度スコア / EV=モデル確率×オッズ。</p>
     </div>
@@ -1536,6 +1536,52 @@ function renderSys(d){
   else tile("off","INFER","--","");
   document.getElementById("syslamps").innerHTML=t.join("");
 }
+var liveSel=null;
+function renderLiveDetail(id){
+  var box=document.getElementById("live-detail");
+  if(!box)return;
+  var rs=RB[id]||[];
+  if(!id||!rs.length){box.innerHTML="";return;}
+  var sc=null;
+  for(var i=0;i<SCHED.length;i++)if(SCHED[i].id===id){sc=SCHED[i];break;}
+  var head=sc?(sc.v+" "+sc.rno+"R \u2500 \u7de0\u5207 "+sc.dl):id;
+  var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">DETAIL \u2500 '+head+"</div>";
+  rs.forEach(function(r){
+    var d2=r.detail||{},b="";
+    if(d2.mu&&d2.mu.length){
+      var mumin=Math.min.apply(null,d2.mu),mumax=Math.max.apply(null,d2.mu);
+      b+='<div class="stmini" style="margin:0 0 6px">TrueSkill \u03bc\u00b1\u03c3</div>';
+      d2.mu.forEach(function(m,i2){
+        var pct=mumax>mumin?((m-mumin)/(mumax-mumin))*88+12:50;
+        b+=rowbar(laneChip(i2+1),pct,m.toFixed(1)+" \u00b1"+((d2.sg||[])[i2]||0).toFixed(2));
+      });
+    }
+    if(d2.s&&d2.s.length){
+      var smax=Math.max.apply(null,d2.s);
+      b+='<div class="stmini" style="margin:8px 0 6px">s\u5024 (\u8247\u5225\u5f37\u5ea6)</div>';
+      d2.s.forEach(function(sv,i3){b+=rowbar(laneChip(i3+1),sv/smax*100,sv.toFixed(3));});
+    }
+    if(d2.t5&&d2.t5.length){
+      var pmax=d2.t5[0].p||1;
+      b+='<div class="stmini" style="margin:8px 0 6px">p_final \u4e0a\u4f4d5</div>';
+      d2.t5.forEach(function(t5){
+        b+=rowbar('<span class="val" style="width:52px;text-align:left">'+fmtK(t5.k)+"</span>",t5.p/pmax*100,(t5.p*100).toFixed(1)+"%");
+      });
+    }
+    b+='<div class="kvgrid" style="margin-top:10px">'+
+      kv("\u5224\u5b9a",r.bets.length?"BET "+r.bets.length+"\u70b9":(GATE_JP[r.verdict]||r.verdict))+
+      kv("maxEV",d2.mev!=null?d2.mev+" @"+fmtK(d2.mevk||""):"-")+
+      kv("EV med/p90",d2.med!=null?d2.med+" / "+d2.p90:"-")+
+      kv("\u5e2f\u57df\u5185\u30aa\u30c3\u30ba",d2.nb!=null?d2.nb:"-")+"</div>";
+    r.bets.forEach(function(bt){
+      b+='<div class="dl" style="margin-top:6px">BET '+fmtK(bt.k)+" \u00a5"+bt.stake+(bt.ev!=null?" EV "+bt.ev:"")+(bt.o!=null?" @"+bt.o+"\u500d":"")+"</div>";
+    });
+    if(r.pnl!=null)b+='<div class="verdict '+(r.pnl>0?"g":"r")+'" style="margin-top:8px;font-size:13px">'+
+      (r.win?"\u7d50\u679c "+fmtK(String(r.win).replace(/-/g,""))+" \u2500 ":"")+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"\u5186</div>";
+    out+=stg(ENG_SHORT[r.eng]||r.eng,head,b);
+  });
+  box.innerHTML=out;
+}
 function loadLive(){
   fetch("data/live_today.json",{cache:"no-store"}).then(function(r){
     if(!r.ok)throw 0;return r.json();
@@ -1560,7 +1606,7 @@ function loadLive(){
       var pnl=(r.pnl!=null)?
         '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"</span>":
         (r.bets.length?"\u7d50\u679c\u5f85\u3061":"");
-      return '<div class="lf-row"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
+      return '<div class="lf-row'+(r.id===liveSel?" on":"")+'" data-id="'+r.id+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
         '<span class="lf-e">'+r.eng+'</span>'+
         '<span class="lf-verdict">'+v+'</span><span class="lf-pnl">'+pnl+"</span></div>";
@@ -1573,6 +1619,11 @@ function loadLive(){
     renderToday(d);
     document.getElementById("live-feed").innerHTML=rows||
       '<div class="lf-row"><span class="lf-verdict">\u672c\u65e5\u306e\u51e6\u7406\u5f85\u3061 \u2500 \u521d\u56de\u7de0\u5207\u307e\u3067\u5f85\u6a5f\u4e2d ('+d.n_scheduled+'R\u4e88\u5b9a)</span></div>';
+    if(!liveSel&&d.races.length)liveSel=d.races[d.races.length-1].id;
+    Array.prototype.forEach.call(document.getElementById("live-feed").children,function(x){
+      x.classList.toggle("on",x.getAttribute("data-id")===liveSel);
+    });
+    renderLiveDetail(liveSel);
   }).catch(function(){
     var badge=document.getElementById("live-badge");
     badge.className="lb";badge.textContent="REPLAY";
@@ -1785,11 +1836,20 @@ function schedTick(){
   document.getElementById("schedstrip").innerHTML=items.join("");
   renderWorklog(nsec);
 }
-function openPipe(){pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");renderPipe();loadLive();}
+function openPipe(){pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");loadLive();}
 function closePipe(){pipeOpen=false;pipeEl.classList.remove("open");pipebtn.classList.remove("on");}
 function togglePipe(){pipeOpen?closePipe():openPipe();}
 pipebtn.addEventListener("click",togglePipe);
 document.getElementById("pipeclose").addEventListener("click",closePipe);
+document.getElementById("live-feed").addEventListener("click",function(e){
+  var row=e.target.closest(".lf-row");
+  if(!row||!row.getAttribute("data-id"))return;
+  liveSel=row.getAttribute("data-id");
+  Array.prototype.forEach.call(document.getElementById("live-feed").children,function(x){
+    x.classList.toggle("on",x.getAttribute("data-id")===liveSel);
+  });
+  renderLiveDetail(liveSel);
+});
 
 /* ================= boot ================= */
 buildMap();seedInk();resetCamTarget();

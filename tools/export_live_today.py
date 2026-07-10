@@ -19,6 +19,16 @@ CACHE = Path("/tmp/botrace_live_cache")
 STACK = Path("/home/nemui/stack2tan")
 
 
+def fnum(x, default=None):
+    if x is None:
+        return default
+    s = re.sub(r"[^0-9.\-]", "", str(x))
+    try:
+        return float(s)
+    except ValueError:
+        return default
+
+
 def fetch_result(hd, jcd, rno, cache_dir):
     """結果JSONをキャッシュ優先で取得 (stack2tanのfetch_raceresultを再利用)"""
     f = cache_dir / f"venue_{jcd}_race_{int(rno):02d}_raceresult.json"
@@ -64,6 +74,9 @@ def main():
     print("engines:", engines)
     rsync(f"{SUB}:{REMOTE}/{hd}/schedule.json", day)
     rsync(f"{SUB}:{REMOTE}/{hd}/morning_status.json", day)
+    rsync(f"{SUB}:{REMOTE}/{hd}/venue_*_racecard.json", day / "cards")
+    rsync(f"{SUB}:/home/sub/stack2tan/data/json/{hd[:4]}/{hd[4:6]}/{hd[6:]}/"
+          f"venue_*_oddstf.json", day / "oddstf")
     rsync(f"{SUB}:{REMOTE}/{hd}/micro_live/", day / "micro_live")
     for eng in engines:
         rsync(f"{SUB}:{REMOTE}/{hd}/{eng}_bets/", day / f"{eng}_bets")
@@ -252,6 +265,29 @@ def main():
                  "rno": r["rno"], "dl": r.get("deadline")}
                 for rid, r in sorted(sched.items(),
                                      key=lambda kv: kv[1].get("deadline") or "99")]
+    # 次レース表示用: 出走表(枠/選手/級/勝率/ST)+単勝オッズ
+    for s in schedule:
+        jcd, rno = s["jcd"], int(s["rno"])
+        cf = day / "cards" / f"venue_{jcd}_race_{rno:02d}_racecard.json"
+        if cf.exists():
+            try:
+                tl = json.load(open(cf))["maindata"]["teiinfolist"]
+                s["card"] = [{"n": int(t["teino"]),
+                              "name": t["racername"].replace("\u3000", " ").strip(),
+                              "cls": t["classname"], "win": fnum(t.get("zwinper")),
+                              "st": fnum(t.get("avest"))} for t in tl]
+            except (KeyError, ValueError, json.JSONDecodeError):
+                pass
+        tf = day / "oddstf" / f"venue_{jcd}_race_{rno:02d}_oddstf.json"
+        if tf.exists():
+            try:
+                om = json.load(open(tf))["maindata"]
+                tans = {e["kumi"]: fnum(e.get("odds")) for e in om.get("oddstlist", [])}
+                s["tan"] = [tans.get(str(i)) for i in range(1, 7)]
+                s["tan_t"] = om.get("updatetime")
+            except (KeyError, json.JSONDecodeError):
+                pass
+
     out = {
         "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "date": hd,

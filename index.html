@@ -154,8 +154,8 @@
   .pipe-in{max-width:880px;margin:0 auto;padding:76px 32px 60px;}
   .pipe-cols{display:grid;grid-template-columns:1fr;gap:0 28px;}
   @media(min-width:1100px){
-    .pipe-in{max-width:1380px;}
-    .pipe-cols{grid-template-columns:minmax(0,2fr) minmax(780px,3fr);}
+    .pipe-in{max-width:1880px;}
+    .pipe-cols{grid-template-columns:340px minmax(0,1fr) 780px;}
     #live-feed{max-height:28vh;}
   }
   #slump{border:1px solid var(--line);padding:10px 14px 8px;margin-bottom:10px;}
@@ -170,6 +170,11 @@
   .vl-head a:hover{text-decoration:underline;}
   #venue-live iframe{width:100%;height:780px;border:0;display:block;background:#000;overflow:hidden;}
   .pipe-cols>div:last-child>*{max-width:767px;}
+  #venue-info{padding:6px 4px;}
+  #venue-info:empty{display:none;}
+  #venue-info .v-bigno{font-size:110px;}
+  #venue-info .v-name{font-size:32px;}
+  @media(max-width:1099px){#venue-info{display:none;}}
   .pipe-eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.34em;color:var(--cyan);margin-bottom:10px;}
   .pipe-in h2{margin:0 0 8px;font-size:26px;font-weight:900;letter-spacing:.12em;}
   .pipe-sub{font-size:12.5px;color:var(--mut);line-height:1.9;margin:0 0 18px;}
@@ -520,6 +525,7 @@
       <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
       <div id="live-feed"></div>
       <div class="pipe-cols">
+        <div id="venue-info"></div>
         <div id="live-detail"></div>
         <div>
           <div id="venue-live"></div>
@@ -1324,6 +1330,25 @@ var LANE_C={1:["#f2f2f2","#10151c"],2:["#15181d","#e8e8e8"],3:["#d8383a","#fff"]
 var racers=[],selLane=0,stakeVal=100,racing=false,boats=[],ddTimer=null,ddSec=0;
 
 function enterVenue(v){
+  if(SCHED.length){
+    var now=new Date(),nsec=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
+    var pick=null,first=null;
+    for(var i=0;i<SCHED.length;i++){
+      var s=SCHED[i];
+      if(+s.jcd!==v.id||!s.dl)continue;
+      if(!first)first=s;
+      var dl=s.dl.split(":"),ds=(+dl[0])*3600+(+dl[1])*60;
+      if(ds+120>=nsec&&!pick)pick=s;
+    }
+    var sel=pick||first;
+    if(sel){
+      liveSel=sel.id;
+      setHover(null);
+      openPipe();
+      renderLiveDetail(liveSel);
+      return;
+    }
+  }
   currentV=v;
   setHover(null);
   camT={x:v.sx,y:v.sy,s:4.6};
@@ -1616,7 +1641,47 @@ function renderSys(d){
   else tile("off","INFER","--","");
   document.getElementById("syslamps").innerHTML=t.join("");
 }
-var liveSel=null,vlJcd=null;
+var liveSel=null,vlJcd=null,viJcd=null;
+function nextRaceHTML(sc){
+  var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">NEXT RACE ── '+sc.v+" "+sc.rno+"R ── 締切 "+sc.dl+"</div>";
+  var b="";
+  if(sc.card){
+    b+='<table class="sh"><thead><tr><th>枠</th><th>選手</th><th class="r">勝率</th><th class="r">ST</th><th class="r">単勝</th></tr></thead><tbody>';
+    sc.card.forEach(function(c2,i){
+      var tn=(sc.tan&&sc.tan[i]!=null)?sc.tan[i].toFixed(1):"-";
+      b+="<tr><td>"+laneChip(c2.n)+"</td><td>"+c2.name+'<span class="kcls">'+c2.cls+"</span></td>"+
+        '<td class="num r">'+(c2.win!=null?c2.win.toFixed(2):"-")+"</td>"+
+        '<td class="num r">'+(c2.st!=null?c2.st.toFixed(2):"-")+"</td>"+
+        '<td class="num r">'+tn+"</td></tr>";
+    });
+    b+="</tbody></table>";
+    if(sc.tan_t)b+='<div class="stmini" style="margin-top:6px">単勝オッズ '+sc.tan_t+'時点</div>';
+  }else{
+    b+='<div class="dl">出走表 同期待ち…</div>';
+  }
+  b+='<div class="stmini" style="margin-top:8px">このレースは未処理 ── 締切約3分前に2エンジンの推論が走ります</div>';
+  return out+stg("WAIT",sc.v+" "+sc.rno+"R",b);
+}
+function renderVenueInfo(jcd){
+  var vi=document.getElementById("venue-info");
+  if(!vi)return;
+  if(jcd===viJcd)return;
+  viJcd=jcd;
+  var vv=null;
+  for(var j=0;j<VENUES.length;j++)if(VENUES[j].id===+jcd){vv=VENUES[j];break;}
+  if(!vv){vi.innerHTML="";return;}
+  var open=OPEN_IDS.indexOf(vv.id)>=0;
+  vi.innerHTML='<div class="v-bigno">'+(vv.id<10?"0":"")+vv.id+'</div>'+
+    '<div class="v-name">'+vv.name+'<small>'+vv.en+'</small></div>'+
+    '<div class="v-chips"><span class="tag water">'+vv.water+'</span>'+
+      (vv.night?'<span class="tag night">ナイター</span>':"")+
+      (open?'<span class="tag open-t">本日開催</span>':'<span class="tag">非開催</span>')+'</div>'+
+    '<p class="v-trait">'+vv.trait+'</p>'+
+    '<div class="gauge-lbl"><span>イン信頼度 / LANE-1 TRUST</span><span class="num">'+Math.round(vv.inStr*100)+'%</span></div>'+
+    '<div class="gauge"><i style="width:'+(vv.inStr*100)+'%"></i></div>'+
+    '<p class="v-note">水面メモ・イン率は公式データでの差し替えを準備中。'+
+    '<a href="https://www.boatrace.jp/owpc/pc/data/stadium?jcd='+jcd+'" target="_blank" rel="noopener" style="color:var(--cyan)">公式の場データ ↗</a></p>';
+}
 function updateVenueLive(jcd,name){
   var el=document.getElementById("venue-live");
   if(!el)return;
@@ -1637,11 +1702,12 @@ function renderLiveDetail(wid){
   if(!box||!wid){if(box)box.innerHTML="";return;}
   var id=wid.split("|")[0];
   var rs=RB[id]||[];
-  if(!rs.length){box.innerHTML="";return;}
   var sc=null;
   for(var i=0;i<SCHED.length;i++)if(SCHED[i].id===id){sc=SCHED[i];break;}
-  var head=sc?(sc.v+" "+sc.rno+"R ── 締切 "+sc.dl):id;
   updateVenueLive(id.split("_")[1],sc?sc.v:"");
+  renderVenueInfo(id.split("_")[1]);
+  if(!rs.length){box.innerHTML=sc?nextRaceHTML(sc):"";return;}
+  var head=sc?(sc.v+" "+sc.rno+"R ── 締切 "+sc.dl):id;
   var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">DETAIL ── '+head+"</div>";
   function kumiChips(k){
     return '<span class="kch">'+String(k).split("").map(function(c2){

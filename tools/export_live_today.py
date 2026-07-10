@@ -75,6 +75,17 @@ def main():
                 "bets": bets,
                 "win": row.get("winno_3t"), "pnl": row.get("pnl_yen"),
                 "settled": row.get("status") == "settled",
+                "detail": {
+                    "s": [round(x, 3) for x in dbg.get("s_values", [])],
+                    "mu": [round(x, 1) for x in dbg.get("ts_mu", [])],
+                    "sg": [round(x, 2) for x in dbg.get("ts_sigma", [])],
+                    "wr": [round(x, 3) for x in dbg.get("weather_wr", [])],
+                    "t5": [{"k": t["kumi"], "p": round(t["prob"], 4)}
+                           for t in d.get("p_final_top5") or []],
+                    "med": dbg.get("ev_median_120"), "p90": dbg.get("ev_p90_120"),
+                    "nb": dbg.get("n_odds_in_band"),
+                    "mev": dbg.get("max_ev"), "mevk": dbg.get("max_ev_kumi"),
+                    "mevo": dbg.get("max_ev_odds")},
             })
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
 

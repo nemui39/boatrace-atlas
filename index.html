@@ -255,7 +255,14 @@
   .live-head{display:flex;align-items:center;gap:14px;margin:0 0 12px;}
   .lb{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.24em;
     padding:4px 10px;border:1px solid var(--line);color:var(--mut);}
-  .lb.on{color:#06222f;background:var(--win);border-color:var(--win);}
+  .lb.on{color:var(--ink);background:none;border-color:var(--line);letter-spacing:.26em;}
+  .lb-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff3b3b;
+    margin-right:8px;vertical-align:1px;
+    animation:recpulse 1.6s ease infinite;}
+  @keyframes recpulse{
+    0%,100%{opacity:1;box-shadow:0 0 6px #ff3b3b,0 0 16px rgba(255,59,59,.8),0 0 30px rgba(255,59,59,.35);}
+    50%{opacity:.5;box-shadow:0 0 2px #ff3b3b;}
+  }
   #live-sum{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);letter-spacing:.06em;}
   #eng-stats{margin:0 0 10px;border:1px solid var(--line);}
   #eng-stats:empty{display:none;}
@@ -1774,7 +1781,7 @@ function loadLive(){
     if(!r.ok)throw 0;return r.json();
   }).then(function(d){
     var badge=document.getElementById("live-badge");
-    badge.textContent="\u25cf LIVE "+d.date.slice(4,6)+"/"+d.date.slice(6);
+    badge.innerHTML='<span class="lb-dot"></span>LIVE '+d.date.slice(4,6)+"/"+d.date.slice(6);
     badge.className="lb on";
     document.getElementById("live-sum").textContent=
       d.n_processed+"/"+d.n_scheduled+" races \u2500 bet "+d.n_bet_races+

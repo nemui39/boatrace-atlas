@@ -49,6 +49,13 @@
   }
   #brand .sub{margin-top:10px;font-size:12.5px;color:var(--mut);letter-spacing:.2em;}
   .brand-in{display:flex;gap:26px;align-items:flex-start;}
+  #opsbtn{
+    pointer-events:auto;display:block;margin-top:16px;
+    background:rgba(5,11,19,.85);border:1px solid var(--cyan-deep);color:var(--ink);
+    font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.2em;
+    padding:11px 20px;cursor:pointer;transition:border-color .15s, box-shadow .15s;
+  }
+  #opsbtn:hover{border-color:var(--cyan);box-shadow:0 0 18px rgba(92,214,255,.25);}
   #syslamps{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;max-width:440px;}
   .sl-tile{border:1px solid var(--line);background:rgba(6,12,20,.6);
     padding:7px 14px 7px 12px;position:relative;min-width:86px;}
@@ -139,9 +146,9 @@
   #pipe.open{opacity:1;visibility:visible;}
   #pipeclose{
     position:absolute;top:24px;left:28px;z-index:26;
-    background:none;border:1px solid var(--line);color:var(--mut);
-    font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spacing:.3em;
-    padding:9px 18px;cursor:pointer;
+    background:rgba(5,11,19,.85);border:1px solid var(--cyan-deep);color:var(--ink);
+    font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.2em;
+    padding:11px 20px;cursor:pointer;
   }
   #pipeclose:hover{color:var(--cyan);border-color:var(--cyan);}
   .pipe-in{max-width:880px;margin:0 auto;padding:76px 32px 60px;}
@@ -463,6 +470,7 @@
         <h1>BOTRACE</h1>
         <div class="eyebrow">── TRIFECTA ENGINE ──</div>
         <div class="sub">競艇AI実運用ボット・ライブモニター</div>
+        <button id="opsbtn"><span class="lb-dot"></span>LIVE OPS ── 実弾運用モニターを開く</button>
       </div>
       <div id="syslamps"></div>
     </div>
@@ -503,7 +511,7 @@
   <div id="toast"></div>
 
   <section id="pipe">
-    <button id="pipeclose">← MAP</button>
+    <button id="pipeclose">← 地図に戻る [ESC]</button>
     <div class="pipe-in">
       <div class="pipe-eyebrow">BOTRACE ── LIVE OPERATIONS</div>
       <h2>実弾運用、進行中。</h2>
@@ -1118,6 +1126,7 @@ function setEngine(on){
   engineinfo.style.display=on?"block":"none";
 }
 engbtn.addEventListener("click",function(){setEngine(!engineView);});
+document.getElementById("opsbtn").addEventListener("click",togglePipe);
 
 function venueAt(mx,my){
   var best=null,bd=18*18;

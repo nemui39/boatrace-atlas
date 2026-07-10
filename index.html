@@ -483,7 +483,6 @@
     <span id="pt" style="display:none">1,000</span>
     <div id="clock">--:--:--</div>
     <button id="engbtn">⚙ ENGINE VIEW [E]</button>
-    <button id="pipebtn">▶ LIVE OPS [P]</button>
   </div>
 
   <div class="hud" id="status"><span id="statustext">INITIALIZING ATLAS</span><span class="cursor"></span></div>
@@ -2064,10 +2063,9 @@ function schedTick(){
   document.getElementById("schedstrip").innerHTML=items.join("");
   renderWorklog(nsec);
 }
-function openPipe(){pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");loadLive();}
-function closePipe(){pipeOpen=false;pipeEl.classList.remove("open");pipebtn.classList.remove("on");}
+function openPipe(){pipeOpen=true;pipeEl.classList.add("open");loadLive();}
+function closePipe(){pipeOpen=false;pipeEl.classList.remove("open");}
 function togglePipe(){pipeOpen?closePipe():openPipe();}
-pipebtn.addEventListener("click",togglePipe);
 document.getElementById("pipeclose").addEventListener("click",closePipe);
 document.getElementById("live-feed").addEventListener("click",function(e){
   var row=e.target.closest(".lf-row");

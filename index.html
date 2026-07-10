@@ -1518,15 +1518,16 @@ function loadLive(){
       " \u2500 PnL "+(d.total.pnl>=0?"+":"")+d.total.pnl.toLocaleString("ja-JP")+
       "\u5186 \u2500 upd "+d.generated_at.slice(11,16);
     var hp=document.getElementById("hud-pnl");
-    hp.textContent=(d.total.pnl>=0?"+":"\u2212")+Math.abs(d.total.pnl).toLocaleString("ja-JP")+"\u5186";
+    var anyProv=(d.races||[]).some(function(r){return r.prov;});
+    hp.textContent=(anyProv?"\u2248":"")+(d.total.pnl>=0?"+":"\u2212")+Math.abs(d.total.pnl).toLocaleString("ja-JP")+"\u5186";
     hp.className="val "+(d.total.pnl>0?"g":(d.total.pnl<0?"r":""));
     document.getElementById("hud-races").textContent=d.n_processed+"/"+d.n_scheduled+" R \u2500 BET "+d.n_bet_races;
     var rows=d.races.slice().reverse().slice(0,60).map(function(r){
       var v=r.bets.length?
         '<span class="g">BET '+r.bets.map(function(b){return fmtK(b.k)+"("+b.ev+")";}).join(" ")+"</span>":
         "\u898b\u9001\u308a "+(GATE_JP[r.verdict]||r.verdict)+(r.max_ev?" / maxEV "+r.max_ev:"");
-      var pnl=(r.settled&&r.pnl!=null)?
-        '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.pnl>=0?"+":"")+r.pnl+"</span>":
+      var pnl=(r.pnl!=null)?
+        '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"</span>":
         (r.bets.length?"\u7d50\u679c\u5f85\u3061":"");
       return '<div class="lf-row"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
@@ -1685,8 +1686,8 @@ function renderWorklog(nsec){
     var bd=w.querySelector(".wl-badge");
     if(bd){
       var pe=engOf(a.s.id,a.eng);
-      bd.textContent=pe?((pe.bets||[]).length?"BET"+(pe.settled&&pe.pnl!=null?" "+(pe.pnl>=0?"+":"")+pe.pnl+"円":" 送信済"):"見送り"):"";
-      bd.className="wl-badge"+(pe&&(pe.bets||[]).length?(pe.settled&&pe.pnl>0?" g":(pe.settled&&pe.pnl<0?" r":" a")):"");
+      bd.textContent=pe?((pe.bets||[]).length?"BET"+(pe.pnl!=null?" "+(pe.settled?"":"≈")+(pe.pnl>=0?"+":"")+pe.pnl+"円":" 送信済"):"見送り"):"";
+      bd.className="wl-badge"+(pe&&(pe.bets||[]).length?(pe.pnl>0?" g":(pe.pnl!=null&&pe.pnl<0?" r":" a")):"");
     }
     var jc=+a.s.jcd,vv=null;
     for(var j=0;j<VENUES.length;j++)if(VENUES[j].id===jc){vv=VENUES[j];break;}
@@ -1704,7 +1705,7 @@ function renderToday(d){
     (RB[r.id]=RB[r.id]||[]).push(r);
     var p=PROC[r.id]||(PROC[r.id]={bet:false,pnl:null});
     if(r.bets.length)p.bet=true;
-    if(r.settled&&r.pnl!=null)p.pnl=(p.pnl||0)+r.pnl;
+    if(r.pnl!=null){p.pnl=(p.pnl||0)+r.pnl;if(r.prov)p.prov=true;}
   });
   var es={};(d.races||[]).forEach(function(r){es[r.eng]=1;});
   var eks=Object.keys(es);if(eks.length)ENGS=eks;
@@ -1739,7 +1740,7 @@ function schedTick(){
   nextRace=pending.length?pending[0].s:null;
   var items=done.slice(-2).map(function(x){
     var v=x.p.bet?
-      ('<em class="'+(x.p.pnl>0?"g":(x.p.pnl<0?"r":"a"))+'">BET'+(x.p.pnl!=null?" "+(x.p.pnl>=0?"+":"")+x.p.pnl:"")+"</em>"):
+      ('<em class="'+(x.p.pnl>0?"g":(x.p.pnl<0?"r":"a"))+'">BET'+(x.p.pnl!=null?" "+(x.p.prov?"\u2248":"")+(x.p.pnl>=0?"+":"")+x.p.pnl:"")+"</em>"):
       "<em>\u898b\u9001</em>";
     return '<span class="sti done">'+x.s.dl+" "+x.s.v+x.s.rno+"R"+v+"</span>";
   });

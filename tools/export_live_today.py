@@ -6,6 +6,7 @@ usage: python3 tools/export_live_today.py [YYYYMMDD]
 """
 import datetime
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -14,6 +15,23 @@ SUB = "sub"
 REMOTE = "/home/sub/stack2tan/data/live"
 REPO = Path(__file__).resolve().parent.parent
 CACHE = Path("/tmp/botrace_live_cache")
+STACK = Path("/home/nemui/stack2tan")
+
+
+def fetch_result(hd, jcd, rno, cache_dir):
+    """結果JSONをキャッシュ優先で取得 (stack2tanのfetch_raceresultを再利用)"""
+    f = cache_dir / f"venue_{jcd}_race_{int(rno):02d}_raceresult.json"
+    if f.exists():
+        try:
+            return json.load(open(f))
+        except json.JSONDecodeError:
+            pass
+    sys.path.insert(0, str(STACK / "scripts"))
+    try:
+        from live_fetch import fetch_raceresult
+        return fetch_raceresult(hd, jcd, int(rno), cache_dir)
+    except Exception:
+        return None
 
 
 def detect_engines(hd):
@@ -104,6 +122,39 @@ def main():
                     "mev": dbg.get("max_ev"), "mevk": dbg.get("max_ev_kumi"),
                     "mevo": dbg.get("max_ev_odds")},
             })
+    # 暫定精算: 本体settle未反映のBETレースは自前で結果を取得しPnLを仮確定
+    rescache = day / "results"
+    rescache.mkdir(exist_ok=True)
+    now = datetime.datetime.now()
+    nmin = now.hour * 60 + now.minute
+    for r in races:
+        if not r["bets"] or r["pnl"] is not None or not r.get("deadline"):
+            continue
+        h, m = r["deadline"].split(":")
+        if nmin < int(h) * 60 + int(m) + 6:  # 結果確定待ち
+            continue
+        _, jcd, rno = r["id"].split("_")
+        rr = fetch_result(hd, jcd, rno, rescache)
+        if not rr:
+            continue
+        try:
+            i3 = rr["maindata"]["infolist3t"][0]
+            win = i3["winno"]
+            div = int(re.sub(r"[^0-9]", "", i3.get("dividend") or "") or 0)
+        except (KeyError, IndexError, TypeError):
+            continue
+        wk = win.replace("-", "")
+        payout = sum(b["stake"] // 100 * div for b in r["bets"] if b["k"] == wk)
+        stake = sum(b["stake"] for b in r["bets"])
+        r["win"] = win
+        r["pnl"] = payout - stake
+        r["prov"] = True
+        total["stake"] += stake
+        total["payout"] += payout
+        total["pnl"] += payout - stake
+        if payout:
+            total["hits"] += 1
+
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
 
     schedule = [{"id": rid, "v": r.get("venue_name"), "jcd": r["jcd"],

@@ -48,6 +48,16 @@
     color:var(--ink);
   }
   #brand .sub{margin-top:10px;font-size:12.5px;color:var(--mut);letter-spacing:.2em;}
+  .brand-in{display:flex;gap:26px;align-items:flex-start;}
+  #syslamps{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;max-width:440px;}
+  .sl-tile{border:1px solid var(--line);background:rgba(6,12,20,.6);
+    padding:7px 14px 7px 12px;position:relative;min-width:86px;}
+  .sl-tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#2a3a4e;}
+  .sl-tile.ok::before{background:var(--win);box-shadow:0 0 10px var(--win);}
+  .sl-tile.run::before{background:var(--amber);box-shadow:0 0 10px var(--amber);animation:blinkc 1s steps(2) infinite;}
+  .sl-lbl{font-family:ui-monospace,Consolas,monospace;font-size:9px;letter-spacing:.24em;color:var(--mut);}
+  .sl-val{font-size:12px;font-weight:700;margin-top:2px;letter-spacing:.06em;color:var(--mut2);}
+  .sl-val.g{color:var(--win);} .sl-val.a{color:var(--amber);}
 
   #walletbox{top:32px;right:32px;text-align:right;}
   #walletbox .lbl{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.32em;color:var(--mut);}
@@ -390,9 +400,14 @@
   <canvas id="map"></canvas>
 
   <div class="hud" id="brand">
-    <h1>BOTRACE</h1>
-    <div class="eyebrow">── TRIFECTA ENGINE ──</div>
-    <div class="sub">競艇AI実運用ボット・ライブモニター</div>
+    <div class="brand-in">
+      <div>
+        <h1>BOTRACE</h1>
+        <div class="eyebrow">── TRIFECTA ENGINE ──</div>
+        <div class="sub">競艇AI実運用ボット・ライブモニター</div>
+      </div>
+      <div id="syslamps"></div>
+    </div>
   </div>
 
   <div class="hud" id="walletbox">
@@ -1506,6 +1521,21 @@ function renderPipe(){
   });
 }
 var liveTimer=null;
+function renderSys(d){
+  var s=d.sys||{},t=[];
+  function tile(cls,lbl,val,vcls){t.push('<div class="sl-tile '+cls+'"><div class="sl-lbl">'+lbl+'</div><div class="sl-val '+(vcls||"")+'">'+val+"</div></div>");}
+  if(s.bet&&s.bet.ok)tile("ok","BET SRV","READY"+(s.bet.bal!=null?" \u00a5"+s.bet.bal.toLocaleString("ja-JP"):""),"g");
+  else tile("off","BET SRV","OFFLINE","");
+  if(s.morning)tile("ok","MORNING","DONE "+(s.morning.t||""),"g");
+  else tile("off","MORNING","--","");
+  tile(d.n_scheduled>0?"ok":"off","SCHED",d.n_scheduled>0?d.n_scheduled+" R":"--",d.n_scheduled>0?"g":"");
+  var ia=s.infer_age_min;
+  if(ia!=null&&ia<=6)tile("run","INFER","RUNNING","a");
+  else if(d.n_processed>0&&d.n_processed<d.n_scheduled)tile("ok","INFER","STANDBY","g");
+  else if(d.n_processed>0)tile("ok","INFER","DONE","g");
+  else tile("off","INFER","--","");
+  document.getElementById("syslamps").innerHTML=t.join("");
+}
 function loadLive(){
   fetch("data/live_today.json",{cache:"no-store"}).then(function(r){
     if(!r.ok)throw 0;return r.json();
@@ -1522,6 +1552,7 @@ function loadLive(){
     hp.textContent=(anyProv?"\u2248":"")+(d.total.pnl>=0?"+":"\u2212")+Math.abs(d.total.pnl).toLocaleString("ja-JP")+"\u5186";
     hp.className="val "+(d.total.pnl>0?"g":(d.total.pnl<0?"r":""));
     document.getElementById("hud-races").textContent=d.n_processed+"/"+d.n_scheduled+" R \u2500 BET "+d.n_bet_races;
+    renderSys(d);
     var rows=d.races.slice().reverse().slice(0,60).map(function(r){
       var v=r.bets.length?
         '<span class="g">BET '+r.bets.map(function(b){return fmtK(b.k)+"("+b.ev+")";}).join(" ")+"</span>":

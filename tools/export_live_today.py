@@ -8,6 +8,7 @@ import datetime
 import json
 import re
 import subprocess
+import time
 import sys
 from pathlib import Path
 
@@ -62,6 +63,7 @@ def main():
     engines = detect_engines(hd)
     print("engines:", engines)
     rsync(f"{SUB}:{REMOTE}/{hd}/schedule.json", day)
+    rsync(f"{SUB}:{REMOTE}/{hd}/morning_status.json", day)
     rsync(f"{SUB}:{REMOTE}/{hd}/micro_live/", day / "micro_live")
     for eng in engines:
         rsync(f"{SUB}:{REMOTE}/{hd}/{eng}_bets/", day / f"{eng}_bets")
@@ -186,6 +188,31 @@ def main():
 
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
 
+    # システムランプ: bet-server状態 / 朝バッチ / 推論の鮮度
+    sysd = {}
+    latest = None
+    for eng in engines:
+        for f in (day / "micro_live" / f"{eng}_submissions").glob("*_live.json"):
+            m = f.stat().st_mtime
+            if latest is None or m > latest[0]:
+                latest = (m, f)
+    if latest:
+        try:
+            bs = json.load(open(latest[1])).get("bet_server_status") or {}
+            sysd["bet"] = {"ok": bool(bs.get("logged_in")), "bal": bs.get("balance")}
+        except json.JSONDecodeError:
+            pass
+    ms = day / "morning_status.json"
+    if ms.exists():
+        sysd["morning"] = {"ok": True, "t": datetime.datetime.fromtimestamp(
+            ms.stat().st_mtime).strftime("%H:%M")}
+    newest = 0.0
+    for eng in engines:
+        for f in (day / f"{eng}_bets").glob("*.json"):
+            newest = max(newest, f.stat().st_mtime)
+    if newest:
+        sysd["infer_age_min"] = round((time.time() - newest) / 60, 1)
+
     schedule = [{"id": rid, "v": r.get("venue_name"), "jcd": r["jcd"],
                  "rno": r["rno"], "dl": r.get("deadline")}
                 for rid, r in sorted(sched.items(),
@@ -198,6 +225,7 @@ def main():
         "n_processed": len({r["id"] for r in races}),
         "n_bet_races": len({r["id"] for r in races if r["bets"]}),
         "total": total,
+        "sys": sysd,
         "races": races,
     }
     dst = REPO / "data"

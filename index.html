@@ -148,7 +148,7 @@
   .pipe-cols{display:grid;grid-template-columns:1fr;gap:0 28px;}
   @media(min-width:1100px){
     .pipe-in{max-width:1380px;}
-    .pipe-cols{grid-template-columns:minmax(780px,3fr) minmax(0,2fr);}
+    .pipe-cols{grid-template-columns:minmax(0,2fr) minmax(780px,3fr);}
     #live-feed{max-height:28vh;}
   }
   #slump{border:1px solid var(--line);padding:10px 14px 8px;margin-bottom:10px;}
@@ -162,7 +162,7 @@
   .vl-head a{color:var(--cyan);text-decoration:none;letter-spacing:.1em;}
   .vl-head a:hover{text-decoration:underline;}
   #venue-live iframe{width:100%;height:780px;border:0;display:block;background:#000;overflow:hidden;}
-  .pipe-cols>div:first-child>*{max-width:767px;}
+  .pipe-cols>div:last-child>*{max-width:767px;}
   .pipe-eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.34em;color:var(--cyan);margin-bottom:10px;}
   .pipe-in h2{margin:0 0 8px;font-size:26px;font-weight:900;letter-spacing:.12em;}
   .pipe-sub{font-size:12.5px;color:var(--mut);line-height:1.9;margin:0 0 18px;}
@@ -505,12 +505,12 @@
       <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
       <div id="live-feed"></div>
       <div class="pipe-cols">
+        <div id="live-detail"></div>
         <div>
           <div id="venue-live"></div>
           <div id="slump"></div>
           <div id="eng-stats"></div>
         </div>
-        <div id="live-detail"></div>
       </div>
       <p class="pipe-note">※ モデル本体・特徴量定義・重みは非公開。表示しているのは実運用が各レースで記録した診断ログのみ。
         TrueSkill=選手・コース別レーティング / s値=艇別強度スコア / EV=モデル確率×オッズ。</p>

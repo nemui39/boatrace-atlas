@@ -1937,7 +1937,9 @@ function loadLive(){
       return '<div class="lf-row'+(r.id===liveSel?" on":"")+'" data-id="'+r.id+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
         '<span class="lf-e">'+(ENG_TAG[r.eng]||r.eng.slice(0,6))+'</span>'+
-        '<span class="lf-verdict" title="'+vfull+'">'+v+'</span><span class="lf-win">'+(r.win?("結果 "+kumiChips(String(r.win).replace(/-/g,""),"f")):"")+'</span><span class="lf-pnl">'+pnl+"</span></div>";
+        (r.bets.length||r.win||pnl?
+          '<span class="lf-verdict" title="'+vfull+'">'+v+'</span><span class="lf-win">'+(r.win?("結果 "+kumiChips(String(r.win).replace(/-/g,""),"f")):"")+'</span><span class="lf-pnl">'+pnl+"</span>":
+          '<span class="lf-verdict" style="grid-column:4/7" title="'+vfull+'">'+v+"</span>")+"</div>";
     }).join("");
     if(lastLiveDate&&lastLiveDate!==d.date){
       /* 日付が変わったら前日のワークログ状態を全消去 */

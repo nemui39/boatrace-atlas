@@ -57,7 +57,7 @@
   #walletbox .open-count::before{content:"●";font-size:8px;vertical-align:2px;margin-right:6px;}
 
   #status{
-    bottom:86px;left:32px;
+    bottom:128px;left:32px;
     font-family:ui-monospace,Consolas,monospace;font-size:11.5px;letter-spacing:.28em;color:var(--mut);
   }
   #status .cursor{display:inline-block;width:8px;height:13px;background:var(--cyan);
@@ -110,7 +110,7 @@
 
   /* ============ engine view / telemetry ============ */
   #telemetry{
-    bottom:86px;right:32px;text-align:right;
+    bottom:128px;right:32px;text-align:right;
     font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.18em;
     color:var(--mut);line-height:1.9;
   }
@@ -123,7 +123,7 @@
   #engbtn:hover,#pipebtn:hover{color:var(--cyan);border-color:var(--cyan);}
   #engbtn.on,#pipebtn.on{color:#06222f;background:var(--cyan);border-color:var(--cyan);}
   #engineinfo{
-    display:none;bottom:130px;left:32px;max-width:440px;
+    display:none;bottom:176px;left:32px;max-width:440px;
     background:rgba(5,11,19,.9);border:1px solid var(--line);border-left:2px solid var(--cyan);
     padding:12px 16px;font-size:11px;color:var(--mut);line-height:1.9;
   }
@@ -179,6 +179,22 @@
   .g{color:var(--win);} .r{color:var(--lose);} .a{color:var(--amber);}
   .verdict{font-size:15px;font-weight:900;letter-spacing:.1em;margin-bottom:10px;}
   .pipe-note{font-size:11px;color:var(--mut2);line-height:1.8;border-top:1px dashed var(--line);padding-top:14px;}
+  #schedstrip{
+    position:absolute;left:0;right:0;bottom:58px;z-index:5;display:none;
+    gap:8px;padding:6px 16px;overflow-x:auto;scrollbar-width:none;
+    font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);
+  }
+  #schedstrip::-webkit-scrollbar{display:none;}
+  .sti{flex:0 0 auto;border:1px solid var(--line);padding:4px 10px;
+    background:rgba(5,11,19,.75);letter-spacing:.05em;white-space:nowrap;}
+  .sti em{font-style:normal;color:var(--cyan);margin-left:6px;font-variant-numeric:tabular-nums;}
+  .sti.due{border-color:var(--amber);} .sti.due em{color:var(--amber);}
+  .sti.proc{border-color:var(--amber);animation:blinkc 1s steps(2) infinite;}
+  .sti.done{opacity:.55;}
+  .sti em.g{color:var(--win);} .sti em.r{color:var(--lose);} .sti em.a{color:var(--amber);}
+  #clock{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--mut);
+    letter-spacing:.14em;margin-top:8px;font-variant-numeric:tabular-nums;}
+
   .live-head{display:flex;align-items:center;gap:14px;margin:0 0 12px;}
   .lb{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.24em;
     padding:4px 10px;border:1px solid var(--line);color:var(--mut);}
@@ -372,6 +388,7 @@
     <div class="lbl">HOLD</div>
     <div class="val"><span id="pt">1,000</span><em>PT</em></div>
     <div class="open-count">本日開催 <span id="opencount">8</span>場</div>
+    <div id="clock">--:--:--</div>
     <button id="engbtn">⚙ ENGINE VIEW [E]</button>
     <button id="pipebtn">▶ LIVE OPS [P]</button>
   </div>
@@ -391,6 +408,8 @@
   </div>
 
   <div id="hovercard"></div>
+
+  <div class="hud" id="schedstrip"></div>
 
   <div id="venuebar"></div>
 
@@ -821,7 +840,7 @@ function camPos(x,y){
 var t0=performance.now();
 var introDone=reduced;
 var INTRO_DOTS=1100, INTRO_V0=1300, INTRO_VSTEP=80;
-var hoverV=null, panelOpen=false, currentV=null;
+var hoverV=null, panelOpen=false, currentV=null, nextRace=null;
 
 /* ================= render ================= */
 var fpsEma=16.7,simEma=0,lastTele=0,lastNow=0;
@@ -911,12 +930,13 @@ function render(now){
     var p=camPos(v.sx,v.sy);
     var col=open?"255,180,84":"92,214,255";
 
-    /* ping rings */
+    /* ping rings (next-deadline venue pulses hard) */
     if(!reduced){
-      var period=open?2200:3600;
+      var isNext=nextRace&&v.id===+nextRace.jcd;
+      var period=isNext?1000:(open?2200:3600);
       var ph=((t+i*777)%period)/period;
-      var rr=4+ph*(open?26:18);
-      ctx.globalAlpha=(1-ph)*(open?.5:.28)*pop;
+      var rr=4+ph*(isNext?34:(open?26:18));
+      ctx.globalAlpha=(1-ph)*(isNext?.75:(open?.5:.28))*pop;
       ctx.strokeStyle="rgba("+col+",1)";
       ctx.lineWidth=1;
       ctx.beginPath();ctx.arc(p[0],p[1],rr,0,6.283);ctx.stroke();
@@ -1485,6 +1505,7 @@ function loadLive(){
         '<span class="lf-e">'+r.eng+'</span>'+
         '<span class="lf-verdict">'+v+'</span><span class="lf-pnl">'+pnl+"</span></div>";
     }).join("");
+    renderToday(d);
     document.getElementById("live-feed").innerHTML=rows||
       '<div class="lf-row"><span class="lf-verdict">\u672c\u65e5\u306e\u51e6\u7406\u5f85\u3061 \u2500 \u521d\u56de\u7de0\u5207\u307e\u3067\u5f85\u6a5f\u4e2d ('+d.n_scheduled+'R\u4e88\u5b9a)</span></div>';
   }).catch(function(){
@@ -1492,22 +1513,71 @@ function loadLive(){
     badge.className="lb";badge.textContent="REPLAY";
     document.getElementById("live-sum").textContent=
       "\u5f53\u65e5\u30d5\u30a3\u30fc\u30c9\u306a\u3057(\u3053\u306e\u74b0\u5883\u3067\u306f\u53d6\u5f97\u4e0d\u53ef) \u2500 \u4e0b\u306eSHOWCASE\u306f\u5b9f\u30ed\u30b0";
+    document.getElementById("schedstrip").style.display="none";
   });
 }
-function openPipe(){
-  pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");renderPipe();
-  loadLive();clearInterval(liveTimer);liveTimer=setInterval(loadLive,60000);
+var SCHED=[],PROC={};
+function renderToday(d){
+  SCHED=d.schedule||[];
+  PROC={};
+  (d.races||[]).forEach(function(r){
+    var p=PROC[r.id]||(PROC[r.id]={bet:false,pnl:null});
+    if(r.bets.length)p.bet=true;
+    if(r.settled&&r.pnl!=null)p.pnl=(p.pnl||0)+r.pnl;
+  });
+  /* real open venues from today's schedule */
+  var set={};SCHED.forEach(function(s){set[+s.jcd]=1;});
+  var ids=Object.keys(set).map(Number);
+  if(ids.length){
+    OPEN_IDS.length=0;ids.forEach(function(x){OPEN_IDS.push(x);});
+    document.getElementById("opencount").textContent=ids.length;
+    Array.prototype.forEach.call(bar.children,function(b,i){
+      b.classList.toggle("open",OPEN_IDS.indexOf(VENUES[i].id)>=0);
+    });
+  }
+  document.getElementById("schedstrip").style.display="flex";
+  schedTick();
 }
-function closePipe(){
-  pipeOpen=false;pipeEl.classList.remove("open");pipebtn.classList.remove("on");
-  clearInterval(liveTimer);
+function mmss(s){var m=Math.floor(s/60),ss=s%60;return (m<10?"0":"")+m+":"+(ss<10?"0":"")+ss;}
+function schedTick(){
+  var now=new Date();
+  document.getElementById("clock").textContent=
+    ("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2)+":"+("0"+now.getSeconds()).slice(-2);
+  if(!SCHED.length)return;
+  var nsec=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
+  var done=[],pending=[];
+  SCHED.forEach(function(s){
+    if(!s.dl)return;
+    var p=PROC[s.id];
+    var dl=s.dl.split(":"), ds=(+dl[0])*3600+(+dl[1])*60;
+    if(p)done.push({s:s,p:p,ds:ds});
+    else if(ds<=nsec)pending.push({s:s,proc:true,ds:ds});
+    else pending.push({s:s,left:ds-nsec,ds:ds});
+  });
+  done.sort(function(a,b){return a.ds-b.ds;});
+  pending.sort(function(a,b){return a.ds-b.ds;});
+  nextRace=pending.length?pending[0].s:null;
+  var items=done.slice(-2).map(function(x){
+    var v=x.p.bet?
+      ('<em class="'+(x.p.pnl>0?"g":(x.p.pnl<0?"r":"a"))+'">BET'+(x.p.pnl!=null?" "+(x.p.pnl>=0?"+":"")+x.p.pnl:"")+"</em>"):
+      "<em>\u898b\u9001</em>";
+    return '<span class="sti done">'+x.s.dl+" "+x.s.v+x.s.rno+"R"+v+"</span>";
+  });
+  pending.slice(0,8).forEach(function(x){
+    if(x.proc)items.push('<span class="sti proc">'+x.s.dl+" "+x.s.v+x.s.rno+'R<em class="a">\u63a8\u8ad6\u4e2d\u2026</em></span>');
+    else items.push('<span class="sti'+(x.left<120?" due":"")+'">'+x.s.dl+" "+x.s.v+x.s.rno+'R<em>'+mmss(x.left)+"</em></span>");
+  });
+  document.getElementById("schedstrip").innerHTML=items.join("");
 }
+function openPipe(){pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");renderPipe();loadLive();}
+function closePipe(){pipeOpen=false;pipeEl.classList.remove("open");pipebtn.classList.remove("on");}
 function togglePipe(){pipeOpen?closePipe():openPipe();}
 pipebtn.addEventListener("click",togglePipe);
 document.getElementById("pipeclose").addEventListener("click",closePipe);
 
 /* ================= boot ================= */
 buildMap();seedInk();resetCamTarget();
+loadLive();setInterval(loadLive,60000);setInterval(schedTick,1000);
 cam={x:W/2,y:H/2,s:1};
 renderPt();
 requestAnimationFrame(render);

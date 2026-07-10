@@ -78,10 +78,15 @@ def main():
             })
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
 
+    schedule = [{"id": rid, "v": r.get("venue_name"), "jcd": r["jcd"],
+                 "rno": r["rno"], "dl": r.get("deadline")}
+                for rid, r in sorted(sched.items(),
+                                     key=lambda kv: kv[1].get("deadline") or "99")]
     out = {
         "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "date": hd,
         "n_scheduled": len(sched),
+        "schedule": schedule,
         "n_processed": len({r["id"] for r in races}),
         "n_bet_races": len({r["id"] for r in races if r["bets"]}),
         "total": total,

@@ -1596,8 +1596,8 @@ function detailLines(id,eng){
 }
 function engOf(id,eng){var f=null;(RB[id]||[]).forEach(function(r){if(r.eng===eng)f=r;});return f;}
 var wlScript={},wlShown={},wlType={};
-var ENGS=["t3w6","condthird_sigma4_laneproj"];
-var ENG_SHORT={t3w6:"T3W6",condthird_sigma4_laneproj:"SIGMA4",condthird_blend020:"BLEND020"};
+var ENGS=["t3w6_lateflow","condthird_sigma4_laneproj"];
+var ENG_SHORT={t3w6:"T3W6",t3w6_lateflow:"T3W6 LATEFLOW",condthird_sigma4_laneproj:"SIGMA4",condthird_blend020:"BLEND020"};
 function buildScript(a){
   var d=a.ds,L=[];
   function add(off,txt){L.push({t:d-off,txt:txt});}

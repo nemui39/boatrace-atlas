@@ -14,7 +14,22 @@ SUB = "sub"
 REMOTE = "/home/sub/stack2tan/data/live"
 REPO = Path(__file__).resolve().parent.parent
 CACHE = Path("/tmp/botrace_live_cache")
-ENGINES = ["t3w6", "condthird_sigma4_laneproj", "condthird_blend020"]
+
+
+def detect_engines(hd):
+    """実弾エンジン = micro_live/*_submissions を持つもの。無ければ *_bets 全部"""
+    r = subprocess.run(
+        ["ssh", SUB, f"ls -d {REMOTE}/{hd}/micro_live/*_submissions "
+                     f"{REMOTE}/{hd}/*_bets 2>/dev/null"],
+        capture_output=True, text=True)
+    subs, bets = [], []
+    for line in r.stdout.split():
+        name = Path(line).name
+        if name.endswith("_submissions"):
+            subs.append(name[:-len("_submissions")])
+        elif name.endswith("_bets"):
+            bets.append(name[:-len("_bets")])
+    return subs or bets
 
 
 def rsync(src, dst):
@@ -26,9 +41,11 @@ def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
     day.mkdir(parents=True, exist_ok=True)
+    engines = detect_engines(hd)
+    print("engines:", engines)
     rsync(f"{SUB}:{REMOTE}/{hd}/schedule.json", day)
     rsync(f"{SUB}:{REMOTE}/{hd}/micro_live/", day / "micro_live")
-    for eng in ENGINES:
+    for eng in engines:
         rsync(f"{SUB}:{REMOTE}/{hd}/{eng}_bets/", day / f"{eng}_bets")
 
     sched = {}
@@ -54,7 +71,7 @@ def main():
         total["hits"] += sum(1 for r in s.get("rows", []) if r.get("hits"))
 
     races = []
-    for eng in ENGINES:
+    for eng in engines:
         for f in sorted((day / f"{eng}_bets").glob("*.json")):
             try:
                 d = json.load(open(f))

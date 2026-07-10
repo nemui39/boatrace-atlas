@@ -152,17 +152,19 @@
   }
   #pipeclose:hover{color:var(--cyan);border-color:var(--cyan);}
   .pipe-in{max-width:880px;margin:0 auto;padding:76px 32px 60px;}
+  .main-cols{display:grid;grid-template-columns:1fr;gap:0 28px;align-items:start;}
   .pipe-cols{display:grid;grid-template-columns:1fr;gap:0 28px;}
   @media(min-width:900px){
     .pipe-in{max-width:1880px;}
-    .pipe-cols{grid-template-columns:340px minmax(0,1fr) minmax(0,780px);}
+    .main-cols{grid-template-columns:minmax(0,1fr) 780px;}
+    .pipe-cols{grid-template-columns:340px minmax(0,1fr);}
     .feed-cols{grid-template-columns:3fr 2fr;}
   }
   #slump{padding:10px 14px 4px;flex:1;min-height:0;}
   #slump svg{height:140px;}
   #slump:empty{display:none;}
   .slump-leg{display:flex;gap:18px;font-family:ui-monospace,Consolas,monospace;font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums;}
-  #venue-live{border:1px solid var(--line);margin-bottom:10px;max-width:767px;}
+  #venue-live{border:1px solid var(--line);margin-bottom:10px;}
   #venue-live:empty{display:none;}
   .vl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding:7px 12px;border-bottom:1px solid var(--line);
@@ -170,7 +172,7 @@
   .vl-head a{color:var(--cyan);text-decoration:none;letter-spacing:.1em;}
   .vl-head a:hover{text-decoration:underline;}
   #venue-live iframe{width:100%;height:2220px;border:0;display:block;background:#000;overflow:hidden;}
-  .pipe-cols>div:last-child>*{max-width:767px;}
+  #venue-live{max-width:767px;}
   #venue-info{padding:6px 4px;}
   #venue-info:empty{display:none;}
   #venue-info .v-bigno{font-size:110px;}
@@ -529,16 +531,20 @@
         推論 → EVゲート → 投票 → 精算 を無人で回し続けている。
         画面に流れる数字はすべて実運用ログの生値。</p>
       <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
-      <div class="feed-cols">
-        <div id="live-feed"></div>
-        <div id="slump-box">
-          <div id="slump"></div>
-          <div id="eng-stats"></div>
+      <div class="main-cols">
+        <div>
+          <div class="feed-cols">
+            <div id="live-feed"></div>
+            <div id="slump-box">
+              <div id="slump"></div>
+              <div id="eng-stats"></div>
+            </div>
+          </div>
+          <div class="pipe-cols">
+            <div id="venue-info"></div>
+            <div id="live-detail"></div>
+          </div>
         </div>
-      </div>
-      <div class="pipe-cols">
-        <div id="venue-info"></div>
-        <div id="live-detail"></div>
         <div>
           <div id="venue-live"></div>
         </div>

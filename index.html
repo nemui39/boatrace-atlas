@@ -1750,7 +1750,7 @@ function renderSlump(d){
   series.forEach(function(s){s.pts.forEach(function(v){vals.push(v);});});
   var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
   if(hi===lo)hi=lo+1;
-  var W2=600,H2=130,P2=8;
+  var W2=600,H2=240,P2=10;
   function Y(v){return P2+(1-(v-lo)/(hi-lo))*(H2-2*P2);}
   var cols=["#5cd6ff","#ffb454","#4fe08e"];
   var svg='<svg viewBox="0 0 '+W2+' '+H2+'" style="width:100%;display:block">';

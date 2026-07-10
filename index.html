@@ -2187,7 +2187,14 @@ function schedTick(){
   var now=new Date();
   document.getElementById("clock").textContent=
     ("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2)+":"+("0"+now.getSeconds()).slice(-2);
-  if(!SCHED.length)return;
+  if(!SCHED.length){
+    /* 日付切替などでスケジュールが空になったら残留物を掃除 */
+    var wl=document.getElementById("worklog");
+    if(wl){wl.style.display="none";wl.innerHTML="";}
+    wlIds="";WL_LINKS=[];nextRace=null;
+    document.getElementById("schedstrip").innerHTML="";
+    return;
+  }
   var nsec=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
   var done=[],pending=[];
   SCHED.forEach(function(s){

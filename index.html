@@ -1740,8 +1740,7 @@ function schedTick(){
     var p=PROC[s.id];
     var dl=s.dl.split(":"), ds=(+dl[0])*3600+(+dl[1])*60;
     if(p)done.push({s:s,p:p,ds:ds});
-    else if(ds<=nsec)pending.push({s:s,proc:true,ds:ds});
-    else pending.push({s:s,left:ds-nsec,ds:ds});
+    else{var lf=Math.max(0,ds-nsec);pending.push({s:s,left:lf,ds:ds,proc:lf<=180});}
   });
   done.sort(function(a,b){return a.ds-b.ds;});
   pending.sort(function(a,b){return a.ds-b.ds;});
@@ -1753,8 +1752,8 @@ function schedTick(){
     return '<span class="sti done">'+x.s.dl+" "+x.s.v+x.s.rno+"R"+v+"</span>";
   });
   pending.slice(0,8).forEach(function(x){
-    if(x.proc)items.push('<span class="sti proc">'+x.s.dl+" "+x.s.v+x.s.rno+'R<em class="a">\u63a8\u8ad6\u4e2d\u2026</em></span>');
-    else items.push('<span class="sti'+(x.left<120?" due":"")+'">'+x.s.dl+" "+x.s.v+x.s.rno+'R<em>'+mmss(x.left)+"</em></span>");
+    if(x.proc)items.push('<span class="sti proc">'+x.s.dl+" "+x.s.v+x.s.rno+'R<em class="a">'+(x.left>0?"\u63a8\u8ad6\u4e2d "+mmss(x.left):"\u540c\u671f\u5f85\u3061\u2026")+"</em></span>");
+    else items.push('<span class="sti'+(x.left<300?" due":"")+'">'+x.s.dl+" "+x.s.v+x.s.rno+'R<em>'+mmss(x.left)+"</em></span>");
   });
   document.getElementById("schedstrip").innerHTML=items.join("");
   renderWorklog(nsec);

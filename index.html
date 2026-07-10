@@ -1864,7 +1864,7 @@ function renderSlump(d){
   function Y(v){return P2+(1-(v-lo)/(hi-lo))*(H2-2*P2);}
   var cols=["#5cd6ff","#ffb454","#4fe08e"];
   var svg='<svg viewBox="0 0 '+W2+' '+H2+'" style="width:100%;display:block">';
-  svg+='<line x1="'+P2+'" y1="'+Y(0).toFixed(1)+'" x2="'+(W2-P2)+'" y2="'+Y(0).toFixed(1)+'" stroke="rgba(107,129,153,.4)" stroke-dasharray="3 5"/>';
+  svg+='<line x1="'+P2+'" y1="'+Y(0).toFixed(1)+'" x2="'+(W2-P2)+'" y2="'+Y(0).toFixed(1)+'" stroke="rgba(160,185,210,.75)" stroke-width="2" stroke-dasharray="6 5"/>';
   var leg="";
   series.forEach(function(s,si){
     var n=s.pts.length,c2=s.col||cols[si%3];

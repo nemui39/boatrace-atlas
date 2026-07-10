@@ -1538,14 +1538,15 @@ function renderSys(d){
   document.getElementById("syslamps").innerHTML=t.join("");
 }
 var liveSel=null;
-function renderLiveDetail(id){
+function renderLiveDetail(wid){
   var box=document.getElementById("live-detail");
-  if(!box)return;
-  var rs=RB[id]||[];
-  if(!id||!rs.length){box.innerHTML="";return;}
+  if(!box||!wid){if(box)box.innerHTML="";return;}
+  var id=wid.split("|")[0],eng=wid.split("|")[1];
+  var rs=(RB[id]||[]).filter(function(r){return r.eng===eng;});
+  if(!rs.length){box.innerHTML="";return;}
   var sc=null;
   for(var i=0;i<SCHED.length;i++)if(SCHED[i].id===id){sc=SCHED[i];break;}
-  var head=sc?(sc.v+" "+sc.rno+"R \u2500 \u7de0\u5207 "+sc.dl):id;
+  var head=(sc?(sc.v+" "+sc.rno+"R \u2500 \u7de0\u5207 "+sc.dl):id)+" \u2500 "+(ENG_SHORT[eng]||eng);
   var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">DETAIL \u2500 '+head+"</div>";
   rs.forEach(function(r){
     var d2=r.detail||{},b="";
@@ -1574,6 +1575,14 @@ function renderLiveDetail(id){
       kv("maxEV",d2.mev!=null?d2.mev+" @"+fmtK(d2.mevk||""):"-")+
       kv("EV med/p90",d2.med!=null?d2.med+" / "+d2.p90:"-")+
       kv("\u5e2f\u57df\u5185\u30aa\u30c3\u30ba",d2.nb!=null?d2.nb:"-")+"</div>";
+    if(d2.x){
+      var xk=Object.keys(d2.x);
+      if(xk.length){
+        b+='<div class="stmini" style="margin:10px 0 4px">RAW DIAGNOSTICS ('+xk.length+' fields)</div><div class="kvgrid">';
+        xk.forEach(function(k){b+=kv(k,String(d2.x[k]));});
+        b+="</div>";
+      }
+    }
     r.bets.forEach(function(bt){
       b+='<div class="dl" style="margin-top:6px">BET '+fmtK(bt.k)+" \u00a5"+bt.stake+(bt.ev!=null?" EV "+bt.ev:"")+(bt.o!=null?" @"+bt.o+"\u500d":"")+"</div>";
     });
@@ -1607,7 +1616,7 @@ function loadLive(){
       var pnl=(r.pnl!=null)?
         '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"</span>":
         (r.bets.length?"\u7d50\u679c\u5f85\u3061":"");
-      return '<div class="lf-row'+(r.id===liveSel?" on":"")+'" data-id="'+r.id+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
+      return '<div class="lf-row'+((r.id+"|"+r.eng)===liveSel?" on":"")+'" data-id="'+r.id+"|"+r.eng+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
         '<span class="lf-e">'+r.eng+'</span>'+
         '<span class="lf-verdict">'+v+'</span><span class="lf-win">'+(r.win||"")+'</span><span class="lf-pnl">'+pnl+"</span></div>";
@@ -1620,7 +1629,7 @@ function loadLive(){
     renderToday(d);
     document.getElementById("live-feed").innerHTML=rows||
       '<div class="lf-row"><span class="lf-verdict">\u672c\u65e5\u306e\u51e6\u7406\u5f85\u3061 \u2500 \u521d\u56de\u7de0\u5207\u307e\u3067\u5f85\u6a5f\u4e2d ('+d.n_scheduled+'R\u4e88\u5b9a)</span></div>';
-    if(!liveSel&&d.races.length)liveSel=d.races[d.races.length-1].id;
+    if(!liveSel&&d.races.length){var lr=d.races[d.races.length-1];liveSel=lr.id+"|"+lr.eng;}
     Array.prototype.forEach.call(document.getElementById("live-feed").children,function(x){
       x.classList.toggle("on",x.getAttribute("data-id")===liveSel);
     });
@@ -1662,6 +1671,7 @@ function detailLines(id,eng){
     (d2.t5||[]).forEach(function(t5){out.push("p("+fmtK(t5.k)+") = "+(t5.p*100).toFixed(2)+"%");});
     if(d2.med!=null)out.push("EV med "+d2.med+" / p90 "+d2.p90+" / band "+d2.nb);
     if(d2.mev!=null)out.push("maxEV "+d2.mev+" @"+fmtK(d2.mevk||"")+" ("+d2.mevo+"倍)");
+    if(d2.x)Object.keys(d2.x).forEach(function(k2){out.push(k2+" = "+d2.x[k2]);});
     (r.bets||[]).forEach(function(b){out.push("BET "+fmtK(b.k)+" ¥"+b.stake+" EV "+b.ev+" @"+b.o+"倍");});
     if(!(r.bets||[]).length)out.push("見送り: "+(GATE_JP[r.verdict]||r.verdict));
   });

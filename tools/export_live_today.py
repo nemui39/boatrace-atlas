@@ -131,6 +131,25 @@ def main():
                 bets = [{"k": b["kumi"], "o": b.get("odds"),
                          "ev": round(b.get("ev", 0), 2), "stake": b.get("stake")}
                         for b in bf]
+            # debug全フィールドの自動吸い上げ (スカラー+1段ネスト辞書)
+            SKIP = {"max_ev", "max_ev_kumi", "max_ev_odds", "ev_median_120",
+                    "ev_p90_120", "n_odds_in_band", "s_values", "ts_mu",
+                    "ts_sigma", "weather_wr"}
+            extra = {}
+            for k, v in dbg.items():
+                if k in SKIP:
+                    continue
+                if isinstance(v, bool) or isinstance(v, (int, str)):
+                    extra[k] = str(v)[:60] if isinstance(v, str) else v
+                elif isinstance(v, float):
+                    extra[k] = round(v, 4)
+                elif isinstance(v, dict):
+                    for k2, v2 in v.items():
+                        if isinstance(v2, bool) or isinstance(v2, (int, str)):
+                            extra[f"{k}.{k2}"] = (str(v2)[:60]
+                                                  if isinstance(v2, str) else v2)
+                        elif isinstance(v2, float):
+                            extra[f"{k}.{k2}"] = round(v2, 4)
             sc = sched.get(rid, {})
             races.append({
                 "id": rid, "eng": eng,
@@ -151,7 +170,7 @@ def main():
                     "med": dbg.get("ev_median_120"), "p90": dbg.get("ev_p90_120"),
                     "nb": dbg.get("n_odds_in_band"),
                     "mev": dbg.get("max_ev"), "mevk": dbg.get("max_ev_kumi"),
-                    "mevo": dbg.get("max_ev_odds")},
+                    "mevo": dbg.get("max_ev_odds"), "x": extra},
             })
     # 暫定精算: 本体settle未反映のBETレースは自前で結果を取得しPnLを仮確定
     rescache = day / "results"

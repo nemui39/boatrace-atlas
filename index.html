@@ -195,6 +195,19 @@
   .sti.proc{border-color:var(--amber);animation:blinkc 1s steps(2) infinite;}
   .sti.done{opacity:.55;}
   .sti em.g{color:var(--win);} .sti em.r{color:var(--lose);} .sti em.a{color:var(--amber);}
+  #worklog{
+    position:absolute;z-index:6;display:none;min-width:250px;max-width:310px;
+    background:rgba(5,11,19,.94);border:1px solid var(--cyan-deep);border-left:2px solid var(--cyan);
+    font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--mut);
+    pointer-events:none;line-height:1.75;
+  }
+  #worklog .wl-h{padding:6px 12px;border-bottom:1px solid var(--line);color:var(--cyan);
+    font-size:10px;letter-spacing:.2em;}
+  #worklog .wl-b{padding:8px 12px;}
+  #worklog .wl-b div em{font-style:normal;color:var(--amber);margin-right:8px;}
+  #worklog .wl-b .g{color:var(--win);} #worklog .wl-b .r{color:var(--lose);}
+  #worklog .cur{display:inline-block;width:7px;height:11px;background:var(--cyan);
+    vertical-align:-1px;animation:blinkc 1s steps(2) infinite;}
   #clock{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--mut);
     letter-spacing:.14em;margin-top:8px;font-variant-numeric:tabular-nums;}
 
@@ -411,6 +424,8 @@
   </div>
 
   <div id="hovercard"></div>
+
+  <div id="worklog"></div>
 
   <div id="dock">
     <div id="schedstrip"></div>
@@ -1521,6 +1536,52 @@ function loadLive(){
   });
 }
 var SCHED=[],PROC={};
+var WL_STAGES=[
+  [180,"beforeinfo \u53d6\u5f97 (\u5c55\u793a\u30bf\u30a4\u30e0\u30fb\u6c17\u8c61)"],
+  [150,"\u5c55\u793aST / \u9032\u5165\u30b3\u30fc\u30b9 \u89e3\u6790"],
+  [120,"odds3t 120\u901a\u308a \u53d6\u5f97"],
+  [100,"p_mkt \u5e02\u5834\u78ba\u7387 \u8a08\u7b97"],
+  [80,"\u7279\u5fb4\u91cf\u30d9\u30af\u30c8\u30eb \u69cb\u7bc9"],
+  [60,"win6 \u63a8\u8ad6 \u2192 s\u5024"],
+  [45,"120\u30af\u30e9\u30b9\u78ba\u7387 \u5408\u6210"],
+  [30,"EV\u30b2\u30fc\u30c8 \u5224\u5b9a\u4e2d\u2026"],
+  [0,"\u7de0\u5207 \u2500 \u30d9\u30c3\u30c8\u9001\u4fe1\u30a6\u30a3\u30f3\u30c9\u30a6"]];
+function hhmmss(sec){
+  var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s2=sec%60;
+  return ("0"+h).slice(-2)+":"+("0"+m).slice(-2)+":"+("0"+s2).slice(-2);
+}
+function renderWorklog(nsec){
+  var el=document.getElementById("worklog");
+  if(panelOpen||pipeOpen||cam.s>1.4||!SCHED.length){el.style.display="none";return;}
+  var act=null,ds=0;
+  for(var i=0;i<SCHED.length;i++){
+    var s=SCHED[i];if(!s.dl)continue;
+    var dl=s.dl.split(":"),d2=(+dl[0])*3600+(+dl[1])*60;
+    if(nsec>=d2-180&&nsec<=d2+120){act=s;ds=d2;break;}
+  }
+  if(!act){el.style.display="none";return;}
+  var lines=[];
+  WL_STAGES.forEach(function(st){
+    var t2=ds-st[0];
+    if(nsec>=t2)lines.push("<div><em>"+hhmmss(t2)+"</em>"+st[1]+"</div>");
+  });
+  var p=PROC[act.id];
+  if(nsec>ds){
+    if(p)lines.push('<div><em>'+hhmmss(nsec)+'</em>'+(p.bet?'<span class="g">BET \u78ba\u5b9a'+(p.pnl!=null?" "+(p.pnl>=0?"+":"")+p.pnl+"\u5186":"")+"</span>":"\u898b\u9001\u308a \u78ba\u5b9a")+"</div>");
+    else lines.push("<div><em>"+hhmmss(nsec)+"</em>\u7d50\u679c\u540c\u671f\u5f85\u3061\u2026</div>");
+  }
+  el.innerHTML='<div class="wl-h">'+act.v+" "+act.rno+"R \u2500 INFERENCE</div>"+
+    '<div class="wl-b">'+lines.join("")+'<span class="cur"></span></div>';
+  var vv=null;
+  for(var j=0;j<VENUES.length;j++)if(VENUES[j].id===+act.jcd){vv=VENUES[j];break;}
+  if(!vv){el.style.display="none";return;}
+  var pos=camPos(vv.sx,vv.sy);
+  var x=pos[0]+16,y=pos[1]-el.offsetHeight-12;
+  if(x+320>W)x=pos[0]-320;
+  if(y<70)y=pos[1]+16;
+  el.style.left=x+"px";el.style.top=y+"px";
+  el.style.display="block";
+}
 function renderToday(d){
   SCHED=d.schedule||[];
   PROC={};
@@ -1572,6 +1633,7 @@ function schedTick(){
     else items.push('<span class="sti'+(x.left<120?" due":"")+'">'+x.s.dl+" "+x.s.v+x.s.rno+'R<em>'+mmss(x.left)+"</em></span>");
   });
   document.getElementById("schedstrip").innerHTML=items.join("");
+  renderWorklog(nsec);
 }
 function openPipe(){pipeOpen=true;pipeEl.classList.add("open");pipebtn.classList.add("on");renderPipe();loadLive();}
 function closePipe(){pipeOpen=false;pipeEl.classList.remove("open");pipebtn.classList.remove("on");}

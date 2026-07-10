@@ -156,9 +156,10 @@
   @media(min-width:1100px){
     .pipe-in{max-width:1880px;}
     .pipe-cols{grid-template-columns:340px minmax(0,1fr) 780px;}
-    #live-feed{max-height:28vh;}
+    .feed-cols{grid-template-columns:3fr 2fr;}
   }
-  #slump{border:1px solid var(--line);padding:10px 14px 8px;margin-bottom:10px;}
+  #slump{padding:10px 14px 4px;flex:1;min-height:0;}
+  #slump svg{height:140px;}
   #slump:empty{display:none;}
   .slump-leg{display:flex;gap:18px;font-family:ui-monospace,Consolas,monospace;font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums;}
   #venue-live{border:1px solid var(--line);margin-bottom:10px;max-width:767px;}
@@ -168,7 +169,7 @@
     font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.26em;color:var(--ink);}
   .vl-head a{color:var(--cyan);text-decoration:none;letter-spacing:.1em;}
   .vl-head a:hover{text-decoration:underline;}
-  #venue-live iframe{width:100%;height:880px;border:0;display:block;background:#000;overflow:hidden;}
+  #venue-live iframe{width:100%;height:1200px;border:0;display:block;background:#000;overflow:hidden;}
   .pipe-cols>div:last-child>*{max-width:767px;}
   #venue-info{padding:6px 4px;}
   #venue-info:empty{display:none;}
@@ -276,7 +277,7 @@
     50%{opacity:.5;box-shadow:0 0 2px #ff3b3b;}
   }
   #live-sum{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);letter-spacing:.06em;}
-  #eng-stats{margin:0 0 10px;border:1px solid var(--line);}
+  #eng-stats{border-top:1px solid var(--line);}
   #eng-stats:empty{display:none;}
   .es-row{display:flex;gap:18px;padding:8px 14px;border-bottom:1px solid rgba(20,36,58,.6);
     font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--mut);flex-wrap:wrap;
@@ -286,7 +287,9 @@
   .es-row .g{color:var(--win);} .es-row .r{color:var(--lose);}
   .es-row.total{border-top:1px solid var(--line);background:rgba(92,214,255,.04);}
   .es-row.total .es-name{color:var(--ink);}
-  #live-feed{margin-bottom:10px;max-height:300px;overflow-y:auto;border:1px solid var(--line);}
+  .feed-cols{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px;}
+  #live-feed{height:340px;overflow-y:auto;border:1px solid var(--line);}
+  #slump-box{border:1px solid var(--line);display:flex;flex-direction:column;height:340px;overflow:hidden;}
   #live-feed:empty{display:none;}
   .lf-row{display:grid;grid-template-columns:40px 78px 52px minmax(0,1fr) 52px 60px;gap:8px;
     align-items:center;padding:6px 12px;
@@ -523,14 +526,18 @@
         推論 → EVゲート → 投票 → 精算 を無人で回し続けている。
         画面に流れる数字はすべて実運用ログの生値。</p>
       <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
-      <div id="live-feed"></div>
+      <div class="feed-cols">
+        <div id="live-feed"></div>
+        <div id="slump-box">
+          <div id="slump"></div>
+          <div id="eng-stats"></div>
+        </div>
+      </div>
       <div class="pipe-cols">
         <div id="venue-info"></div>
         <div id="live-detail"></div>
         <div>
           <div id="venue-live"></div>
-          <div id="slump"></div>
-          <div id="eng-stats"></div>
         </div>
       </div>
       <p class="pipe-note">※ モデル本体・特徴量定義・重みは非公開。表示しているのは実運用が各レースで記録した診断ログのみ。

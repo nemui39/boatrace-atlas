@@ -225,6 +225,14 @@
     padding:4px 10px;border:1px solid var(--line);color:var(--mut);}
   .lb.on{color:#06222f;background:var(--win);border-color:var(--win);}
   #live-sum{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);letter-spacing:.06em;}
+  #eng-stats{margin:0 0 10px;border:1px solid var(--line);}
+  #eng-stats:empty{display:none;}
+  .es-row{display:flex;gap:18px;padding:8px 14px;border-bottom:1px solid rgba(20,36,58,.6);
+    font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--mut);flex-wrap:wrap;
+    font-variant-numeric:tabular-nums;}
+  .es-row:last-child{border-bottom:none;}
+  .es-name{color:var(--cyan);letter-spacing:.12em;width:130px;flex:0 0 auto;}
+  .es-row .g{color:var(--win);} .es-row .r{color:var(--lose);}
   #live-feed{margin-bottom:10px;max-height:300px;overflow-y:auto;border:1px solid var(--line);}
   #live-feed:empty{display:none;}
   .lf-row{display:flex;gap:12px;align-items:center;padding:7px 12px;
@@ -459,6 +467,7 @@
       <p class="pipe-sub">本番で毎日走っている競艇3連単予測システムの実ログ(2026-05-29 / エンジン t3w6)。
         出走表の取得からモデル推論・EVゲート・ベット・精算まで、以下の数値はすべて当日の生データそのまま。</p>
       <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
+      <div id="eng-stats"></div>
       <div id="live-feed"></div>
       <div id="live-detail"></div>
       <p class="pipe-note">※ モデル本体・特徴量定義・重みは非公開。表示しているのは実運用が各レースで記録した診断ログのみ。
@@ -1596,6 +1605,31 @@ function renderLiveDetail(wid){
   });
   box.innerHTML=out;
 }
+function renderEngStats(d){
+  var by={};
+  (d.races||[]).forEach(function(r){
+    var e=by[r.eng]||(by[r.eng]={n:0,b:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false});
+    e.n++;
+    if(r.bets.length){
+      e.b++;
+      var st=r.bets.reduce(function(a2,x){return a2+(x.stake||0);},0);
+      e.stake+=st;
+      if(r.pnl!=null){e.res++;e.pnl+=r.pnl;e.resStake+=st;if(r.pnl+st>0)e.hits++;if(r.prov)e.prov=true;}
+    }
+  });
+  var t=[];
+  Object.keys(by).forEach(function(eng){
+    var e=by[eng];
+    var roi=e.resStake?((e.resStake+e.pnl)/e.resStake*100):null;
+    t.push('<div class="es-row"><span class="es-name">'+(ENG_SHORT[eng]||eng)+'</span>'+
+      '<span>BET '+e.b+"/"+e.n+" ("+(e.n?(e.b/e.n*100).toFixed(0):"0")+"%)</span>"+
+      '<span>\u8ced\u91d1 \u00a5'+e.stake.toLocaleString("ja-JP")+"</span>"+
+      '<span>HIT '+e.hits+"/"+e.res+(e.res?" ("+(e.hits/e.res*100).toFixed(1)+"%)":"")+"</span>"+
+      '<span class="'+(e.pnl>0?"g":(e.pnl<0?"r":""))+'">'+(e.prov?"\u2248":"")+(e.pnl>=0?"+":"")+e.pnl.toLocaleString("ja-JP")+"\u5186</span>"+
+      '<span class="'+(roi!=null?(roi>=100?"g":"r"):"")+'">\u56de\u53ce '+(roi!=null?roi.toFixed(1)+"%":"-")+"</span></div>");
+  });
+  document.getElementById("eng-stats").innerHTML=t.join("");
+}
 function loadLive(){
   fetch("data/live_today.json",{cache:"no-store"}).then(function(r){
     if(!r.ok)throw 0;return r.json();
@@ -1613,6 +1647,7 @@ function loadLive(){
     hp.className="val "+(d.total.pnl>0?"g":(d.total.pnl<0?"r":""));
     document.getElementById("hud-races").textContent=d.n_processed+"/"+d.n_scheduled+" R \u2500 BET "+d.n_bet_races;
     renderSys(d);
+    renderEngStats(d);
     var rows=d.races.slice().reverse().slice(0,60).map(function(r){
       var v=r.bets.length?
         '<span class="g">BET '+r.bets.map(function(b){return fmtK(b.k)+"("+b.ev+")";}).join(" ")+"</span>":

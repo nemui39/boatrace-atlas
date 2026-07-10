@@ -177,9 +177,10 @@
   #venue-info:empty{display:none;}
   #venue-info .v-bigno{font-size:110px;}
   #venue-info .v-name{font-size:32px;}
-  .wmap{width:100%;margin-top:12px;display:block;
-    filter:invert(.93) hue-rotate(185deg) saturate(1.5) brightness(1.05);
-    opacity:.9;border:1px solid var(--line);}
+  .wmap{width:100%;margin-top:12px;display:block;border:none;
+    filter:invert(1) sepia(1) saturate(2.6) hue-rotate(155deg) brightness(.9)
+      drop-shadow(0 0 3px rgba(92,214,255,.55));
+    mix-blend-mode:screen;opacity:.95;}
   @media(max-width:899px){#venue-info{display:none;}}
   .pipe-eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.34em;color:var(--cyan);margin-bottom:10px;}
   .pipe-in h2{margin:0 0 8px;font-size:26px;font-weight:900;letter-spacing:.12em;}
@@ -223,6 +224,7 @@
   .bw-row .val{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:76px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto;}
   .lane.sm{width:15px;height:15px;font-size:9px;}
   .kch{display:inline-flex;gap:2px;width:60px;flex:0 0 auto;}
+  .kch.f{width:auto;margin-right:5px;vertical-align:-3px;}
   .kvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:2px 22px;}
   .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;border-bottom:1px dashed rgba(20,36,58,.8);padding:5px 0;color:var(--mut);}
   .kv b{font-family:ui-monospace,Consolas,monospace;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
@@ -1528,6 +1530,10 @@ var pipeEl=document.getElementById("pipe");
 var pipebtn=document.getElementById("pipebtn");
 function ttime(s){var m=/(\d{1,2}:\d{2}(:\d{2})?)/.exec(s||"");return m?m[1]:(s||"--");}
 function fmtK(k){return String(k).split("").join("-");}
+function kumiChips(k,cls){
+  return '<span class="kch'+(cls?" "+cls:"")+'">'+String(k).split("").map(function(c2){
+    return '<span class="lane sm l'+c2+'">'+c2+"</span>";}).join("")+"</span>";
+}
 function yen(n){return (n>=0?"+":"\u2212")+Math.abs(n).toLocaleString("ja-JP")+"\u5186";}
 function pbar(pct,amb){return '<div class="pbar"><i class="'+(amb?"amb":"")+'" style="width:'+Math.max(2,Math.min(100,pct)).toFixed(1)+'%"></i></div>';}
 function rowbar(chip,pct,val,amb){return '<div class="rowbar">'+chip+pbar(pct,amb)+'<span class="val">'+val+'</span></div>';}
@@ -1658,7 +1664,7 @@ function renderSys(d){
   else tile("off","INFER","--","");
   document.getElementById("syslamps").innerHTML=t.join("");
 }
-var liveSel=null,vlJcd=null,viJcd=null;
+var liveSel=null,vlJcd=null,viJcd=null,lastDK="";
 /* 公式サイト「最近3ヶ月」の1コース1着率 (2026-07-10取得、手動更新) */
 var REAL_IN={1:51.9,2:40.0,3:44.7,4:46.5,5:58.3,6:55.4,7:53.5,8:57.7,9:57.8,10:50.1,11:54.8,12:59.6,13:62.9,14:51.2,15:56.5,16:55.1,17:60.0,18:63.4,19:63.3,20:57.6,21:61.1,22:62.6,23:58.3,24:57.3};
 
@@ -1727,13 +1733,13 @@ function renderLiveDetail(wid){
   for(var i=0;i<SCHED.length;i++)if(SCHED[i].id===id){sc=SCHED[i];break;}
   updateVenueLive(id.split("_")[1],sc?sc.v:"");
   renderVenueInfo(id.split("_")[1]);
+  var dk=wid+"|"+rs.map(function(r){return r.eng+":"+(r.pnl!=null?r.pnl:"?")+":"+r.bets.length+(r.settled?"s":"");}).join(",")+
+    "|"+(sc?String(sc.tan_t||"")+(sc.card?"c":""):"");
+  if(dk===lastDK)return;
+  lastDK=dk;
   if(!rs.length){box.innerHTML=sc?nextRaceHTML(sc):"";return;}
   var head=sc?(sc.v+" "+sc.rno+"R ── 締切 "+sc.dl):id;
   var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">DETAIL ── '+head+"</div>";
-  function kumiChips(k){
-    return '<span class="kch">'+String(k).split("").map(function(c2){
-      return '<span class="lane sm l'+c2+'">'+c2+"</span>";}).join("")+"</span>";
-  }
   rs.forEach(function(r){
     var d2=r.detail||{},b="";
     if(d2.mu&&d2.mu.length){
@@ -1896,7 +1902,7 @@ function loadLive(){
         "BET "+r.bets.map(function(b){return fmtK(b.k)+"("+b.ev+")";}).join(" "):
         "\u898b\u9001\u308a "+(GATE_JP[r.verdict]||r.verdict)+(r.max_ev?" / maxEV "+r.max_ev:"")).replace(/"/g,"");
       var v=r.bets.length?
-        '<span class="g">BET '+r.bets.map(function(b){return fmtK(b.k);}).join(" ")+"</span>":
+        '<span class="g">BET</span> '+r.bets.map(function(b){return kumiChips(b.k,"f");}).join(""):
         gateShort(r.verdict)+(r.max_ev?" \u2500 EV"+r.max_ev:"");
       var pnl=(r.pnl!=null)?
         '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"</span>":

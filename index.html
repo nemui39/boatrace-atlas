@@ -50,7 +50,7 @@
   #brand .sub{margin-top:10px;font-size:12.5px;color:var(--mut);letter-spacing:.2em;}
   .brand-in{display:flex;gap:26px;align-items:flex-start;}
   #opsbtn{
-    pointer-events:auto;display:block;margin-top:16px;
+    pointer-events:auto;display:block;margin-top:16px;width:400px;text-align:left;
     background:rgba(5,11,19,.85);border:1px solid var(--cyan-deep);color:var(--ink);
     font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.2em;
     padding:11px 20px;cursor:pointer;transition:border-color .15s, box-shadow .15s;
@@ -236,7 +236,7 @@
   .sti em.g{color:var(--win);} .sti em.r{color:var(--lose);} .sti em.a{color:var(--amber);}
   #worklog{position:absolute;inset:0;z-index:6;pointer-events:none;display:none;}
   .wlog{
-    position:absolute;min-width:340px;max-width:400px;
+    position:absolute;width:400px;
     background:rgba(5,11,19,.94);border:1px solid var(--cyan-deep);border-left:2px solid var(--cyan);
     font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--mut);
     line-height:1.75;animation:pipeIn .45s ease;
@@ -469,8 +469,8 @@
       <div>
         <h1>BOTRACE</h1>
         <div class="eyebrow">── TRIFECTA ENGINE ──</div>
-        <div class="sub">競艇AI実運用ボット・ライブモニター</div>
-        <button id="opsbtn"><span class="lb-dot"></span>LIVE OPS ── 実弾運用モニターを開く</button>
+        <div class="sub">AUTONOMOUS KYOTEI BETTING BOT ── LIVE MONITOR</div>
+        <button id="opsbtn"><span class="lb-dot"></span>LIVE OPS ── OPEN CONSOLE</button>
       </div>
       <div id="syslamps"></div>
     </div>
@@ -1991,7 +1991,7 @@ function renderWorklog(nsec){
     });
   }
   lastAct=act;
-  var slots=[[36,190],[36,395],[36,600],[W-436,190],[W-436,395],[W-436,600]];
+  var slots=[[32,190],[32,395],[32,600],[W-436,190],[W-436,395],[W-436,600]];
   WL_LINKS=[];
   Array.prototype.forEach.call(el.children,function(w,i){
     var a=act[i],sl=wlSlotMap[a.wid]||0;

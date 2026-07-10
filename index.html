@@ -145,6 +145,15 @@
   }
   #pipeclose:hover{color:var(--cyan);border-color:var(--cyan);}
   .pipe-in{max-width:880px;margin:0 auto;padding:76px 32px 60px;}
+  .pipe-cols{display:grid;grid-template-columns:1fr;gap:0 28px;}
+  @media(min-width:1100px){
+    .pipe-in{max-width:1380px;}
+    .pipe-cols{grid-template-columns:1fr 1fr;}
+    #live-feed{max-height:46vh;}
+  }
+  #slump{border:1px solid var(--line);padding:10px 14px 8px;margin-bottom:10px;}
+  #slump:empty{display:none;}
+  .slump-leg{display:flex;gap:18px;font-family:ui-monospace,Consolas,monospace;font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums;}
   .pipe-eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.34em;color:var(--cyan);margin-bottom:10px;}
   .pipe-in h2{margin:0 0 8px;font-size:26px;font-weight:900;letter-spacing:.12em;}
   .pipe-sub{font-size:12.5px;color:var(--mut);line-height:1.9;margin:0 0 18px;}
@@ -480,10 +489,15 @@
       <h2>実運用パイプライン・トレース</h2>
       <p class="pipe-sub">本番で毎日走っている競艇3連単予測システムの実ログ(2026-05-29 / エンジン t3w6)。
         出走表の取得からモデル推論・EVゲート・ベット・精算まで、以下の数値はすべて当日の生データそのまま。</p>
-      <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
-      <div id="eng-stats"></div>
-      <div id="live-feed"></div>
-      <div id="live-detail"></div>
+      <div class="pipe-cols">
+        <div>
+          <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
+          <div id="eng-stats"></div>
+          <div id="slump"></div>
+          <div id="live-feed"></div>
+        </div>
+        <div id="live-detail"></div>
+      </div>
       <p class="pipe-note">※ モデル本体・特徴量定義・重みは非公開。表示しているのは実運用が各レースで記録した診断ログのみ。
         TrueSkill=選手・コース別レーティング / s値=艇別強度スコア / EV=モデル確率×オッズ。</p>
     </div>
@@ -1670,6 +1684,42 @@ function renderEngStats(d){
   });
   document.getElementById("eng-stats").innerHTML=t.join("");
 }
+function renderSlump(d){
+  var el=document.getElementById("slump");
+  if(!el)return;
+  var by={};
+  (d.races||[]).forEach(function(r){
+    if(r.pnl==null||!r.bets.length)return;
+    (by[r.eng]=by[r.eng]||[]).push(r.pnl);
+  });
+  var engs=Object.keys(by);
+  if(!engs.length){el.innerHTML="";return;}
+  var series=engs.map(function(e){
+    var c=0;
+    return {eng:e,pts:by[e].map(function(p){c+=p;return c;})};
+  });
+  var vals=[0];
+  series.forEach(function(s){s.pts.forEach(function(v){vals.push(v);});});
+  var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
+  if(hi===lo)hi=lo+1;
+  var W2=600,H2=130,P2=8;
+  function Y(v){return P2+(1-(v-lo)/(hi-lo))*(H2-2*P2);}
+  var cols=["#5cd6ff","#ffb454","#4fe08e"];
+  var svg='<svg viewBox="0 0 '+W2+' '+H2+'" style="width:100%;display:block">';
+  svg+='<line x1="'+P2+'" y1="'+Y(0).toFixed(1)+'" x2="'+(W2-P2)+'" y2="'+Y(0).toFixed(1)+'" stroke="rgba(107,129,153,.4)" stroke-dasharray="3 5"/>';
+  var leg="";
+  series.forEach(function(s,si){
+    var n=s.pts.length,c2=cols[si%3];
+    var pts="8,"+Y(0).toFixed(1)+" "+s.pts.map(function(v,i){
+      return (P2+(n<=1?(W2-2*P2):(i/(n-1))*(W2-2*P2))).toFixed(1)+","+Y(v).toFixed(1);
+    }).join(" ");
+    svg+='<polyline points="'+pts+'" fill="none" stroke="'+c2+'" stroke-width="2" style="filter:drop-shadow(0 0 4px '+c2+')"/>';
+    var last=s.pts[n-1];
+    leg+='<span style="color:'+c2+'">'+(ENG_SHORT[s.eng]||s.eng)+" "+(last>=0?"+":"")+last.toLocaleString("ja-JP")+"\u5186</span>";
+  });
+  svg+="</svg>";
+  el.innerHTML='<div class="stmini" style="margin:0 0 4px">SLUMP \u2500 \u7d2f\u7a4d\u53ce\u652f (\u30d9\u30c3\u30c8\u89e3\u6c7a\u9806)</div>'+svg+'<div class="slump-leg">'+leg+"</div>";
+}
 function loadLive(){
   fetch("data/live_today.json",{cache:"no-store"}).then(function(r){
     if(!r.ok)throw 0;return r.json();
@@ -1688,6 +1738,7 @@ function loadLive(){
     document.getElementById("hud-races").textContent=d.n_processed+"/"+d.n_scheduled+" R \u2500 BET "+d.n_bet_races;
     renderSys(d);
     renderEngStats(d);
+    renderSlump(d);
     var rows=d.races.slice().reverse().slice(0,60).map(function(r){
       var v=r.bets.length?
         '<span class="g">BET '+r.bets.map(function(b){return fmtK(b.k)+"("+b.ev+")";}).join(" ")+"</span>":

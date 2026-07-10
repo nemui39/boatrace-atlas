@@ -164,9 +164,10 @@
   .sg-blk{flex:1;min-height:0;display:flex;flex-direction:column;}
   .sg-blk+.sg-blk{margin-top:6px;}
   .sg-blk svg{flex:1;min-height:0;width:100%;}
-  .sg-name{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.2em;margin-bottom:2px;}
-  .sg-name span{margin-left:8px;letter-spacing:.04em;}
-  .sg-name .g{color:var(--win);} .sg-name .r{color:var(--lose);}
+  .sg-leg{display:flex;gap:18px;font-family:ui-monospace,Consolas,monospace;font-size:10px;
+    letter-spacing:.15em;margin-bottom:6px;flex-wrap:wrap;}
+  .sg-leg b{font-weight:400;letter-spacing:.04em;}
+  .sg-leg .g{color:var(--win);} .sg-leg .r{color:var(--lose);}
   #slump:empty{display:none;}
   .slump-leg{display:flex;gap:18px;font-family:ui-monospace,Consolas,monospace;font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums;}
   #venue-live{border:1px solid var(--line);margin-bottom:10px;}
@@ -1846,13 +1847,27 @@ function renderEngStats(d){
       '<span>P/L</span><b class="'+(e.pnl>0?"g":(e.pnl<0?"r":""))+'">'+(e.prov?"≈":"")+(e.pnl>=0?"+":"")+e.pnl.toLocaleString("ja-JP")+"円</b>"+
       '<span>回収</span><b class="'+(roi!=null?(roi>=100?"g":"r"):"")+'">'+(roi!=null?roi.toFixed(1)+"%":"-")+"</b></div></div>";
   }
-  var t=[],T={n:0,b:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false};
-  var cols=["#5cd6ff","#ffb454","#4fe08e"];
+  var t=[],cols=["#5cd6ff","#ffb454","#4fe08e"];
   Object.keys(by).forEach(function(eng,i){
-    var e=by[eng];
-    ["n","b","stake","pnl","resStake","hits","res"].forEach(function(k){T[k]+=e[k];});
-    if(e.prov)T.prov=true;
-    t.push(block(ENG_SHORT[eng]||eng,e,cols[i%3]));
+    t.push(block(ENG_SHORT[eng]||eng,by[eng],cols[i%3]));
+  });
+  /* TOTAL: 同一レースは合算(どちらかが賭けたレース=1カウント) */
+  var byId={};
+  (d.races||[]).forEach(function(r){
+    var o=byId[r.id]||(byId[r.id]={bet:false,stake:0,resStake:0,pnl:0,res:false,hit:false,prov:false});
+    if(r.bets.length){
+      o.bet=true;
+      var st2=r.bets.reduce(function(a2,x){return a2+(x.stake||0);},0);
+      o.stake+=st2;
+      if(r.pnl!=null){o.res=true;o.resStake+=st2;o.pnl+=r.pnl;if(r.pnl+st2>0)o.hit=true;if(r.prov)o.prov=true;}
+    }
+  });
+  var T={n:0,b:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false};
+  Object.keys(byId).forEach(function(id2){
+    var o=byId[id2];
+    T.n++;
+    if(o.bet){T.b++;T.stake+=o.stake;}
+    if(o.res){T.res++;T.resStake+=o.resStake;T.pnl+=o.pnl;if(o.hit)T.hits++;if(o.prov)T.prov=true;}
   });
   if(Object.keys(by).length>1)t.push(block("TOTAL",T,"#eaf3fa",true));
   document.getElementById("eng-stats").innerHTML=t.join("");
@@ -1870,41 +1885,43 @@ function renderSlump(d){
   if(!engs.length){el.innerHTML="";return;}
   var items=engs.map(function(e,i){
     var c=0;
-    return {name:ENG_SHORT[e]||e,col:["#5cd6ff","#ffb454","#4fe08e"][i%3],
+    return {name:ENG_SHORT[e]||e,col:["#5cd6ff","#ffb454","#4fe08e"][i%3],w:2.2,
       pts:by[e].map(function(p){c+=p;return c;})};
   });
   var tc=0,tp=[];
   (d.races||[]).forEach(function(r){if(r.pnl!=null&&r.bets.length){tc+=r.pnl;tp.push(tc);}});
-  if(engs.length>1&&tp.length)items.push({name:"TOTAL",col:"#eaf3fa",pts:tp});
+  if(engs.length>1&&tp.length)items.push({name:"TOTAL",col:"#eaf3fa",w:3,pts:tp});
   var sk=items.map(function(s){return s.name+":"+s.pts.length+":"+(s.pts[s.pts.length-1]||0);}).join("|");
   if(sk===slumpKey)return;
   slumpKey=sk;
-  var out="";
+  var W2=560,H2=308,P2=10,X0=54;
+  var alld=[0];
+  items.forEach(function(s){s.pts.forEach(function(v){alld.push(v);});});
+  var ST=2000;
+  var lo=Math.floor(Math.min.apply(null,alld)/ST)*ST,hi=Math.ceil(Math.max.apply(null,alld)/ST)*ST;
+  if(hi<=0)hi=ST;
+  if(lo>=0)lo=-ST;
+  function Y(v){return P2+(1-(v-lo)/(hi-lo))*(H2-2*P2);}
+  var svg='<svg viewBox="0 0 '+W2+' '+H2+'" preserveAspectRatio="none" style="width:100%;height:100%;display:block;flex:1;min-height:0">';
+  for(var g=lo;g<=hi;g+=ST){
+    var yy=Y(g).toFixed(1);
+    svg+='<line x1="'+X0+'" y1="'+yy+'" x2="'+(W2-8)+'" y2="'+yy+'" stroke="'+(g===0?"#e6eef5":"rgba(160,185,210,.16)")+'" stroke-width="'+(g===0?2.2:1)+'" vector-effect="non-scaling-stroke"/>';
+  }
   items.forEach(function(s){
-    var arr=s.pts,W2=560,H2=120,P2=8,X0=54;
-    var lo0=Math.min.apply(null,[0].concat(arr)),hi0=Math.max.apply(null,[0].concat(arr));
-    var ST=2000;
-    var lo=Math.floor(lo0/ST)*ST,hi=Math.ceil(hi0/ST)*ST;
-    if(hi<=0)hi=ST;
-    if(lo>=0)lo=-ST;
-    function Y(v){return P2+(1-(v-lo)/(hi-lo))*(H2-2*P2);}
-    function X(i2){return X0+(arr.length<=1?(W2-X0-8):i2/(arr.length-1)*(W2-X0-8));}
-    var svg='<svg viewBox="0 0 '+W2+' '+H2+'" preserveAspectRatio="none" style="width:100%;height:100%;display:block">';
-    for(var g=lo;g<=hi;g+=ST){
-      var yy=Y(g).toFixed(1);
-      svg+='<line x1="'+X0+'" y1="'+yy+'" x2="'+(W2-8)+'" y2="'+yy+'" stroke="'+(g===0?"#e6eef5":"rgba(160,185,210,.16)")+'" stroke-width="'+(g===0?2.2:1)+'" vector-effect="non-scaling-stroke"/>';
-    }
-    var pts=arr.map(function(v,i2){return X(i2).toFixed(1)+","+Y(v).toFixed(1);}).join(" ");
-    svg+='<polyline points="'+X0+','+Y(0).toFixed(1)+' '+pts+'" fill="none" stroke="'+s.col+'" stroke-width="2.6" vector-effect="non-scaling-stroke"/>';
-    [hi,0,lo].forEach(function(g2){
-      svg+='<text x="4" y="'+(Y(g2)+3.5).toFixed(1)+'" font-size="10" fill="#9fb3c8" textLength="44" lengthAdjust="spacingAndGlyphs" font-family="Consolas,monospace">'+(g2>0?"+":"")+g2.toLocaleString("ja-JP")+"</text>";
-    });
-    svg+="</svg>";
-    var last=arr[arr.length-1];
-    out+='<div class="sg-blk"><div class="sg-name" style="color:'+s.col+'">'+s.name+
-      ' <span class="'+(last>0?"g":(last<0?"r":""))+'">'+(last>=0?"+":"")+last.toLocaleString("ja-JP")+"円</span></div>"+svg+"</div>";
+    var n=s.pts.length;
+    function X(i2){return X0+(n<=1?(W2-X0-8):i2/(n-1)*(W2-X0-8));}
+    var pts=s.pts.map(function(v,i2){return X(i2).toFixed(1)+","+Y(v).toFixed(1);}).join(" ");
+    svg+='<polyline points="'+X0+','+Y(0).toFixed(1)+' '+pts+'" fill="none" stroke="'+s.col+'" stroke-width="'+s.w+'" vector-effect="non-scaling-stroke"/>';
   });
-  el.innerHTML=out;
+  [hi,0,lo].forEach(function(g2){
+    svg+='<text x="4" y="'+(Y(g2)+3.5).toFixed(1)+'" font-size="10" fill="#9fb3c8" textLength="44" lengthAdjust="spacingAndGlyphs" font-family="Consolas,monospace">'+(g2>0?"+":"")+g2.toLocaleString("ja-JP")+"</text>";
+  });
+  svg+="</svg>";
+  var leg='<div class="sg-leg">'+items.map(function(s){
+    var last=s.pts[s.pts.length-1];
+    return '<span style="color:'+s.col+'">'+s.name+' <b class="'+(last>0?"g":(last<0?"r":""))+'">'+(last>=0?"+":"")+last.toLocaleString("ja-JP")+"円</b></span>";
+  }).join("")+"</div>";
+  el.innerHTML=leg+svg;
 }
 function loadLive(){
   fetch("data/live_today.json",{cache:"no-store"}).then(function(r){

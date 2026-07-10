@@ -149,7 +149,7 @@
   @media(min-width:1100px){
     .pipe-in{max-width:1380px;}
     .pipe-cols{grid-template-columns:1fr 1fr;}
-    #live-feed{max-height:46vh;}
+    #live-feed{max-height:28vh;}
   }
   #slump{border:1px solid var(--line);padding:10px 14px 8px;margin-bottom:10px;}
   #slump:empty{display:none;}
@@ -501,13 +501,13 @@
       <h2>実運用パイプライン・トレース</h2>
       <p class="pipe-sub">本番で毎日走っている競艇3連単予測システムの実ログ(2026-05-29 / エンジン t3w6)。
         出走表の取得からモデル推論・EVゲート・ベット・精算まで、以下の数値はすべて当日の生データそのまま。</p>
+      <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
+      <div id="live-feed"></div>
       <div class="pipe-cols">
         <div>
-          <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
-          <div id="eng-stats"></div>
-          <div id="slump"></div>
           <div id="venue-live"></div>
-          <div id="live-feed"></div>
+          <div id="slump"></div>
+          <div id="eng-stats"></div>
         </div>
         <div id="live-detail"></div>
       </div>

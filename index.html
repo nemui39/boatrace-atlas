@@ -182,6 +182,8 @@
   .bw-whisk::before,.bw-whisk::after{content:"";position:absolute;top:-3px;width:1px;height:7px;background:rgba(92,214,255,.5);}
   .bw-whisk::before{left:0;} .bw-whisk::after{right:0;}
   .bw-dot{position:absolute;top:2px;width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px rgba(92,214,255,.9);}
+  .bw-stem{position:absolute;top:5.5px;left:0;height:1px;background:rgba(92,214,255,.5);}
+  .bw-grid.k{left:70px;}
   .bw-row .val{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:76px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto;}
   .lane.sm{width:15px;height:15px;font-size:9px;}
   .kch{display:inline-flex;gap:2px;width:60px;flex:0 0 auto;}
@@ -1594,14 +1596,28 @@ function renderLiveDetail(wid){
       b+="</div>";
     }
     if(d2.s&&d2.s.length){
-      b+='<div class="stmini" style="margin:8px 0 6px">s値 (右端=1.0)</div>';
-      d2.s.forEach(function(sv,i3){b+=rowbar(laneChip(i3+1),sv*100,sv.toFixed(3));});
+      b+='<div class="stmini" style="margin:8px 0 6px">s値 (右端=1.0)</div><div class="bw-wrap">'+
+        '<div class="bw-grid"><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i><i style="left:100%"></i></div>';
+      d2.s.forEach(function(sv,i3){
+        var pw=(sv*100).toFixed(1);
+        b+='<div class="bw-row">'+laneChip(i3+1)+
+          '<div class="bw-track"><div class="bw-stem" style="width:'+pw+'%"></div>'+
+          '<div class="bw-dot" style="left:calc('+pw+'% - 4px)"></div></div>'+
+          '<span class="val">'+sv.toFixed(3)+"</span></div>";
+      });
+      b+="</div>";
     }
     if(d2.t5&&d2.t5.length){
-      b+='<div class="stmini" style="margin:8px 0 6px">p_final TOP'+d2.t5.length+' (右端=100%)</div>';
+      b+='<div class="stmini" style="margin:8px 0 6px">p_final TOP'+d2.t5.length+' (右端=100% ── 目盛 5/10/20%)</div><div class="bw-wrap">'+
+        '<div class="bw-grid k"><i style="left:5%"></i><i style="left:10%"></i><i style="left:20%"></i></div>';
       d2.t5.forEach(function(t5){
-        b+=rowbar(kumiChips(t5.k),t5.p*100,(t5.p*100).toFixed(1)+"%");
+        var pw2=(t5.p*100).toFixed(2);
+        b+='<div class="bw-row">'+kumiChips(t5.k)+
+          '<div class="bw-track"><div class="bw-stem" style="width:'+pw2+'%"></div>'+
+          '<div class="bw-dot" style="left:calc('+pw2+'% - 4px)"></div></div>'+
+          '<span class="val">'+(t5.p*100).toFixed(1)+"%</span></div>";
       });
+      b+="</div>";
     }
     /* エンジン固有の指標 */
     var xg=d2.x||{},xkeys=["candidate","package_for_day","gate_score","day_metric_combo","day_metric_a","day_metric_b","p_mkt_source","wind_bin","late_flow_reselect.late_flow_status","late_flow_reselect.updatetime"];

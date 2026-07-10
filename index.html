@@ -1673,33 +1673,51 @@ var ENG_SHORT={t3w6:"T3W6",t3w6_lateflow:"T3W6 LATEFLOW",condthird_sigma4_lanepr
 function buildScript(a){
   var d=a.ds,L=[];
   function add(off,txt){L.push({t:d-off,txt:txt});}
-  add(180,"── PRE-FLIGHT");
-  add(178,"GET beforeinfo jcd="+a.s.jcd+" rno="+a.s.rno+" … 200");
-  add(176,"parse teiinfolist … 6艇");
-  add(173,"extime / tilt 取得 … OK");
-  add(170,"展示ST / 進入コース 解析 … OK");
-  add(163,"気象 wind/wave/temp/water 取得");
-  add(150,"── MARKET");
-  add(148,"GET odds3t … 200 (120通り)");
-  add(145,"odds parse 120/120");
-  add(142,"p_mkt 正規化 Σ=1.0000");
-  add(137,"odds 帯域スキャン");
-  add(120,"── FEATURES");
-  add(117,"racecard系 特徴量 … 32列");
-  add(113,"直前系(展示/気象) … 18列");
-  add(109,"TrueSkill lookup μσ ×6");
-  add(105,"weather_course WR lookup ×6");
-  add(100,"feature vector 完成");
-  add(90,"── INFERENCE");
-  add(87,"win6 forward → s値 ×6");
-  add(82,"120-class 確率合成");
-  add(76,"キャリブレーション適用");
-  add(60,"── EV GATE");
-  add(57,"EV = p × odds … 120通り");
-  add(52,"band / threshold 判定");
-  add(38,"送信候補 監視中…");
-  add(18,"bet-server handshake OK");
-  add(0,"締切 ── submit window close");
+  if((a.eng||"").indexOf("t3w6")===0){
+    add(180,"── PRE-FLIGHT");
+    add(177,"GET beforeinfo jcd="+a.s.jcd+" rno="+a.s.rno+" … 200");
+    add(173,"展示ST / 進入 解析 … OK");
+    add(168,"気象・水面 取得");
+    add(150,"── LATE-FLOW WATCH");
+    add(147,"odds3t スナップ#1 … 200");
+    add(120,"odds3t スナップ#2 … Δ監視");
+    add(95,"odds3t スナップ#3 … 金流検知");
+    add(90,"── FEATURES");
+    add(86,"late-flow 特徴量 … 24列");
+    add(81,"racecard / 直前系 … 50列");
+    add(75,"TrueSkill lookup μσ ×6");
+    add(60,"── INFERENCE");
+    add(56,"t3w6 forward → s値 ×6");
+    add(50,"120-class 確率合成");
+    add(44,"calibration 適用");
+    add(35,"── EV GATE");
+    add(31,"EV = p × odds … 120通り");
+    add(26,"band / threshold 判定");
+    add(15,"bet-server handshake OK");
+    add(0,"締切 ── submit window close");
+  }else{
+    add(180,"── PRE-FLIGHT");
+    add(178,"GET beforeinfo jcd="+a.s.jcd+" rno="+a.s.rno+" … 200");
+    add(175,"parse teiinfolist … 6艇");
+    add(171,"展示ST / 進入コース 解析 … OK");
+    add(165,"気象 wind/wave/temp 取得");
+    add(150,"── MARKET");
+    add(147,"GET odds3t … 200 (120通り)");
+    add(143,"p_mkt 正規化 Σ=1.0000");
+    add(120,"── STATE");
+    add(116,"trueskill.lane lookup μσ ×6");
+    add(111,"weather_course WR lookup ×6");
+    add(105,"lane射影 (sigma4) 準備");
+    add(90,"── INFERENCE");
+    add(86,"win6 forward → s値 ×6");
+    add(80,"cond-third 確率合成 (120)");
+    add(73,"sigma4 laneproj 補正");
+    add(60,"── EV GATE");
+    add(56,"EV = p × odds … 120通り");
+    add(50,"band / threshold 判定");
+    add(20,"bet-server handshake OK");
+    add(0,"締切 ── submit window close");
+  }
   return L;
 }
 function wlLine(t,txt){
@@ -1709,8 +1727,8 @@ function wlLine(t,txt){
 function wlDue(sc,nsec){var n=0;while(n<sc.length&&sc[n].t<=nsec)n++;return n;}
 function wlBody(a,nsec){
   var id=a.s.id, wid=a.wid;
-  if(!wlScript[id])wlScript[id]=buildScript(a);
-  var sc=wlScript[id];
+  if(!wlScript[wid])wlScript[wid]=buildScript(a);
+  var sc=wlScript[wid];
   var due=wlDue(sc,nsec);
   if(wlShown[wid]==null)wlShown[wid]=due;
   var lines=[];
@@ -1755,7 +1773,7 @@ function renderWorklog(nsec){
   }else{
     Array.prototype.forEach.call(el.children,function(w,i){
       var a=act[i];
-      var sc2=wlScript[a.s.id];
+      var sc2=wlScript[a.wid];
       if(sc2&&wlShown[a.wid]!=null&&wlShown[a.wid]<wlDue(sc2,nsec))return;
       if(RB[a.s.id]&&wlReveal[a.wid]!=null&&wlReveal[a.wid]<detailLines(a.s.id,a.eng).length)return;
       var b=w.querySelector(".wl-b");
@@ -1863,8 +1881,8 @@ setInterval(function(){
     var a=lastAct[i];
     if(!a)return;
     var id=a.s.id, wid=a.wid;
-    if(!wlScript[id])wlScript[id]=buildScript(a);
-    var sc=wlScript[id];
+    if(!wlScript[wid])wlScript[wid]=buildScript(a);
+    var sc=wlScript[wid];
     var due=wlDue(sc,nsec);
     if(wlShown[wid]==null)wlShown[wid]=due;
     var b=w.querySelector(".wl-b"),cur=b.querySelector(".cur");

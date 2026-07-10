@@ -264,6 +264,8 @@
   .es-row:last-child{border-bottom:none;}
   .es-name{color:var(--cyan);letter-spacing:.12em;width:130px;flex:0 0 auto;}
   .es-row .g{color:var(--win);} .es-row .r{color:var(--lose);}
+  .es-row.total{border-top:1px solid var(--line);background:rgba(92,214,255,.04);}
+  .es-row.total .es-name{color:var(--ink);}
   #live-feed{margin-bottom:10px;max-height:300px;overflow-y:auto;border:1px solid var(--line);}
   #live-feed:empty{display:none;}
   .lf-row{display:flex;gap:12px;align-items:center;padding:7px 12px;
@@ -1696,17 +1698,23 @@ function renderEngStats(d){
       if(r.pnl!=null){e.res++;e.pnl+=r.pnl;e.resStake+=st;if(r.pnl+st>0)e.hits++;if(r.prov)e.prov=true;}
     }
   });
-  var t=[];
+  function row(name,e,cls){
+    var roi=e.resStake?((e.resStake+e.pnl)/e.resStake*100):null;
+    return '<div class="es-row'+(cls||"")+'"><span class="es-name">'+name+'</span>'+
+      '<span>BET '+e.b+"/"+e.n+" ("+(e.n?(e.b/e.n*100).toFixed(0):"0")+"%)</span>"+
+      '<span>賭金 ¥'+e.stake.toLocaleString("ja-JP")+"</span>"+
+      '<span>HIT '+e.hits+"/"+e.res+(e.res?" ("+(e.hits/e.res*100).toFixed(1)+"%)":"")+"</span>"+
+      '<span class="'+(e.pnl>0?"g":(e.pnl<0?"r":""))+'">'+(e.prov?"≈":"")+(e.pnl>=0?"+":"")+e.pnl.toLocaleString("ja-JP")+"円</span>"+
+      '<span class="'+(roi!=null?(roi>=100?"g":"r"):"")+'">回収 '+(roi!=null?roi.toFixed(1)+"%":"-")+"</span></div>";
+  }
+  var t=[],T={n:0,b:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false};
   Object.keys(by).forEach(function(eng){
     var e=by[eng];
-    var roi=e.resStake?((e.resStake+e.pnl)/e.resStake*100):null;
-    t.push('<div class="es-row"><span class="es-name">'+(ENG_SHORT[eng]||eng)+'</span>'+
-      '<span>BET '+e.b+"/"+e.n+" ("+(e.n?(e.b/e.n*100).toFixed(0):"0")+"%)</span>"+
-      '<span>\u8ced\u91d1 \u00a5'+e.stake.toLocaleString("ja-JP")+"</span>"+
-      '<span>HIT '+e.hits+"/"+e.res+(e.res?" ("+(e.hits/e.res*100).toFixed(1)+"%)":"")+"</span>"+
-      '<span class="'+(e.pnl>0?"g":(e.pnl<0?"r":""))+'">'+(e.prov?"\u2248":"")+(e.pnl>=0?"+":"")+e.pnl.toLocaleString("ja-JP")+"\u5186</span>"+
-      '<span class="'+(roi!=null?(roi>=100?"g":"r"):"")+'">\u56de\u53ce '+(roi!=null?roi.toFixed(1)+"%":"-")+"</span></div>");
+    ["n","b","stake","pnl","resStake","hits","res"].forEach(function(k){T[k]+=e[k];});
+    if(e.prov)T.prov=true;
+    t.push(row(ENG_SHORT[eng]||eng,e));
   });
+  if(Object.keys(by).length>1)t.push(row("TOTAL",T," total"));
   document.getElementById("eng-stats").innerHTML=t.join("");
 }
 function renderSlump(d){
@@ -1723,6 +1731,11 @@ function renderSlump(d){
     var c=0;
     return {eng:e,pts:by[e].map(function(p){c+=p;return c;})};
   });
+  var tc=0,tpts=[];
+  (d.races||[]).forEach(function(r){
+    if(r.pnl!=null&&r.bets.length){tc+=r.pnl;tpts.push(tc);}
+  });
+  if(engs.length>1&&tpts.length)series.push({eng:"TOTAL",pts:tpts,col:"#eaf3fa",w:2.5});
   var vals=[0];
   series.forEach(function(s){s.pts.forEach(function(v){vals.push(v);});});
   var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
@@ -1734,11 +1747,11 @@ function renderSlump(d){
   svg+='<line x1="'+P2+'" y1="'+Y(0).toFixed(1)+'" x2="'+(W2-P2)+'" y2="'+Y(0).toFixed(1)+'" stroke="rgba(107,129,153,.4)" stroke-dasharray="3 5"/>';
   var leg="";
   series.forEach(function(s,si){
-    var n=s.pts.length,c2=cols[si%3];
+    var n=s.pts.length,c2=s.col||cols[si%3];
     var pts="8,"+Y(0).toFixed(1)+" "+s.pts.map(function(v,i){
       return (P2+(n<=1?(W2-2*P2):(i/(n-1))*(W2-2*P2))).toFixed(1)+","+Y(v).toFixed(1);
     }).join(" ");
-    svg+='<polyline points="'+pts+'" fill="none" stroke="'+c2+'" stroke-width="2" style="filter:drop-shadow(0 0 4px '+c2+')"/>';
+    svg+='<polyline points="'+pts+'" fill="none" stroke="'+c2+'" stroke-width="'+(s.w||2)+'" style="filter:drop-shadow(0 0 4px '+c2+')"/>';
     var last=s.pts[n-1];
     leg+='<span style="color:'+c2+'">'+(ENG_SHORT[s.eng]||s.eng)+" "+(last>=0?"+":"")+last.toLocaleString("ja-JP")+"\u5186</span>";
   });

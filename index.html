@@ -1743,7 +1743,7 @@ function renderLiveDetail(wid){
   for(var i=0;i<SCHED.length;i++)if(SCHED[i].id===id){sc=SCHED[i];break;}
   updateVenueLive(id.split("_")[1],sc?sc.v:"");
   renderVenueInfo(id.split("_")[1]);
-  var dk=wid+"|"+rs.map(function(r){return r.eng+":"+(r.pnl!=null?r.pnl:"?")+":"+r.bets.length+(r.settled?"s":"");}).join(",")+
+  var dk=wid+"|"+rs.map(function(r){var st3=r.bets.reduce(function(a3,b3){return a3+(b3.stake||0);},0);return r.eng+":"+(r.pnl!=null?r.pnl:"?")+":"+r.bets.length+":"+st3+(r.settled?"s":"");}).join(",")+
     "|"+(sc?String(sc.tan_t||"")+(sc.card?"c":""):"");
   if(dk===lastDK)return;
   lastDK=dk;

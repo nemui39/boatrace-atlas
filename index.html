@@ -181,8 +181,8 @@
   .buoy{position:absolute;width:9px;height:9px;border-radius:50%;background:#ff3b3b;
     transform:translate(-50%,-50%);animation:recpulse 1.6s ease infinite;}
   .wmap{width:100%;display:block;border:none;
-    filter:invert(1) hue-rotate(180deg) saturate(1.7) brightness(.95)
-      drop-shadow(0 0 3px rgba(92,214,255,.45));
+    filter:invert(1) sepia(1) saturate(2.6) hue-rotate(155deg) brightness(.9)
+      drop-shadow(0 0 3px rgba(92,214,255,.5));
     mix-blend-mode:screen;opacity:.95;}
   @media(max-width:899px){#venue-info{display:none;}}
   .pipe-eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.34em;color:var(--cyan);margin-bottom:10px;}
@@ -1719,7 +1719,7 @@ function renderVenueInfo(jcd){
     '<p class="v-note">1着率は公式サイト「最近3ヶ月のデータ」より。'+
     '<a href="https://www.boatrace.jp/owpc/pc/data/stadium?jcd='+jcd+'" target="_blank" rel="noopener" style="color:var(--cyan)">公式の場データ ↗</a></p>'+
     '<div class="wmap-wrap"><img class="wmap" src="https://www.boatrace.jp/static_extra/pc/images/img_water1_'+jcd+'.png" alt="水面図" loading="lazy">'+
-    '<i class="buoy" style="left:30.6%;top:53.8%"></i><i class="buoy" style="left:78.2%;top:63.6%"></i></div>';
+    '<i class="buoy" style="left:31.8%;top:56.2%"></i><i class="buoy" style="left:79.4%;top:66%"></i></div>';
 }
 function updateVenueLive(jcd,name){
   var el=document.getElementById("venue-live");

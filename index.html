@@ -1534,6 +1534,11 @@ function loadLive(){
         '<span class="lf-e">'+r.eng+'</span>'+
         '<span class="lf-verdict">'+v+'</span><span class="lf-pnl">'+pnl+"</span></div>";
     }).join("");
+    if(lastLiveDate&&lastLiveDate!==d.date){
+      /* 日付が変わったら前日のワークログ状態を全消去 */
+      wlScript={};wlShown={};wlReveal={};wlType={};wlSlotMap={};wlIds="";WL_LINKS=[];
+    }
+    lastLiveDate=d.date;
     renderToday(d);
     document.getElementById("live-feed").innerHTML=rows||
       '<div class="lf-row"><span class="lf-verdict">\u672c\u65e5\u306e\u51e6\u7406\u5f85\u3061 \u2500 \u521d\u56de\u7de0\u5207\u307e\u3067\u5f85\u6a5f\u4e2d ('+d.n_scheduled+'R\u4e88\u5b9a)</span></div>';
@@ -1545,7 +1550,7 @@ function loadLive(){
     document.getElementById("schedstrip").style.display="none";
   });
 }
-var SCHED=[],PROC={},RB={},wlReveal={},lastAct=[];
+var SCHED=[],PROC={},RB={},wlReveal={},lastAct=[],lastLiveDate=null;
 var WL_STAGES=[
   [180,"beforeinfo \u53d6\u5f97 (\u5c55\u793a\u30bf\u30a4\u30e0\u30fb\u6c17\u8c61)"],
   [150,"\u5c55\u793aST / \u9032\u5165\u30b3\u30fc\u30b9 \u89e3\u6790"],
@@ -1712,10 +1717,8 @@ function renderToday(d){
   /* real open venues from today's schedule */
   var set={};SCHED.forEach(function(s){set[+s.jcd]=1;});
   var ids=Object.keys(set).map(Number);
-  if(ids.length){
-    OPEN_IDS.length=0;ids.forEach(function(x){OPEN_IDS.push(x);});
-    document.getElementById("opencount").textContent=ids.length;
-  }
+  OPEN_IDS.length=0;ids.forEach(function(x){OPEN_IDS.push(x);});
+  document.getElementById("opencount").textContent=ids.length;
   document.getElementById("schedstrip").style.display="flex";
   if(introDone&&!panelOpen&&!pipeOpen)setStatusDefault();
   schedTick();

@@ -183,6 +183,8 @@
   .bw-whisk::before{left:0;} .bw-whisk::after{right:0;}
   .bw-dot{position:absolute;top:2px;width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px rgba(92,214,255,.9);}
   .bw-row .val{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:76px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto;}
+  .lane.sm{width:15px;height:15px;font-size:9px;}
+  .kch{display:inline-flex;gap:2px;width:60px;flex:0 0 auto;}
   .kvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:2px 22px;}
   .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;border-bottom:1px dashed rgba(20,36,58,.8);padding:5px 0;color:var(--mut);}
   .kv b{font-family:ui-monospace,Consolas,monospace;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
@@ -1564,58 +1566,65 @@ var liveSel=null;
 function renderLiveDetail(wid){
   var box=document.getElementById("live-detail");
   if(!box||!wid){if(box)box.innerHTML="";return;}
-  var id=wid.split("|")[0],eng=wid.split("|")[1];
-  var rs=(RB[id]||[]).filter(function(r){return r.eng===eng;});
+  var id=wid.split("|")[0];
+  var rs=RB[id]||[];
   if(!rs.length){box.innerHTML="";return;}
   var sc=null;
   for(var i=0;i<SCHED.length;i++)if(SCHED[i].id===id){sc=SCHED[i];break;}
-  var head=(sc?(sc.v+" "+sc.rno+"R \u2500 \u7de0\u5207 "+sc.dl):id)+" \u2500 "+(ENG_SHORT[eng]||eng);
-  var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">DETAIL \u2500 '+head+"</div>";
+  var head=sc?(sc.v+" "+sc.rno+"R ── 締切 "+sc.dl):id;
+  var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">DETAIL ── '+head+"</div>";
+  function kumiChips(k){
+    return '<span class="kch">'+String(k).split("").map(function(c2){
+      return '<span class="lane sm l'+c2+'">'+c2+"</span>";}).join("")+"</span>";
+  }
   rs.forEach(function(r){
     var d2=r.detail||{},b="";
     if(d2.mu&&d2.mu.length){
       var lo=Math.min.apply(null,d2.mu)-1.5, hi=Math.max.apply(null,d2.mu)+1.5;
       var bp=function(v){return Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100));};
-      b+='<div class="stmini" style="margin:0 0 6px">TrueSkill \u03bc\u00b1\u03c3</div><div class="bw-wrap">'+
+      b+='<div class="stmini" style="margin:0 0 6px">TrueSkill μ±σ</div><div class="bw-wrap">'+
         '<div class="bw-grid"><i style="left:0%"></i><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i><i style="left:100%"></i></div>';
       d2.mu.forEach(function(m,i2){
         var s2=((d2.sg||[])[i2]||0);
         b+='<div class="bw-row">'+laneChip(i2+1)+
           '<div class="bw-track"><div class="bw-whisk" style="left:'+bp(m-s2).toFixed(1)+'%;width:'+(bp(m+s2)-bp(m-s2)).toFixed(1)+'%"></div>'+
           '<div class="bw-dot" style="left:calc('+bp(m).toFixed(1)+'% - 4px)"></div></div>'+
-          '<span class="val">'+m.toFixed(1)+" \u00b1"+s2.toFixed(2)+"</span></div>";
+          '<span class="val">'+m.toFixed(1)+" ±"+s2.toFixed(2)+"</span></div>";
       });
       b+="</div>";
     }
     if(d2.s&&d2.s.length){
-      var smax=Math.max.apply(null,d2.s);
-      b+='<div class="stmini" style="margin:8px 0 6px">s\u5024 (\u8247\u5225\u5f37\u5ea6\u30fb\u53f3\u7aef=1.0)</div>';
+      b+='<div class="stmini" style="margin:8px 0 6px">s値 (右端=1.0)</div>';
       d2.s.forEach(function(sv,i3){b+=rowbar(laneChip(i3+1),sv*100,sv.toFixed(3));});
     }
     if(d2.t5&&d2.t5.length){
-      b+='<div class="stmini" style="margin:8px 0 6px">p_final \u4e0a\u4f4d5 (\u53f3\u7aef=100%)</div>';
+      b+='<div class="stmini" style="margin:8px 0 6px">p_final TOP'+d2.t5.length+' (右端=100%)</div>';
       d2.t5.forEach(function(t5){
-        b+=rowbar('<span class="val" style="width:52px;text-align:left">'+fmtK(t5.k)+"</span>",t5.p*100,(t5.p*100).toFixed(1)+"%");
+        b+=rowbar(kumiChips(t5.k),t5.p*100,(t5.p*100).toFixed(1)+"%");
       });
     }
+    /* エンジン固有の指標 */
+    var xg=d2.x||{},xkeys=["candidate","package_for_day","gate_score","day_metric_combo","day_metric_a","day_metric_b","p_mkt_source","wind_bin","late_flow_reselect.late_flow_status","late_flow_reselect.updatetime"];
+    var xrows="";
+    xkeys.forEach(function(k){if(xg[k]!=null)xrows+=kv(k,String(xg[k]));});
     b+='<div class="kvgrid" style="margin-top:10px">'+
-      kv("\u5224\u5b9a",r.bets.length?"BET "+r.bets.length+"\u70b9":(GATE_JP[r.verdict]||r.verdict))+
+      kv("判定",r.bets.length?"BET "+r.bets.length+"点":"PASS")+
       kv("maxEV",d2.mev!=null?d2.mev+" @"+fmtK(d2.mevk||""):"-")+
       kv("EV med/p90",d2.med!=null?d2.med+" / "+d2.p90:"-")+
-      kv("\u5e2f\u57df\u5185\u30aa\u30c3\u30ba",d2.nb!=null?d2.nb:"-")+"</div>";
-    if(d2.x){
-      var xk=Object.keys(d2.x);
-      if(xk.length){
-        b+='<div class="stmini" style="margin:10px 0 4px">RAW DIAGNOSTICS ('+xk.length+' fields)</div><div class="kvgrid kvraw">';
-        xk.forEach(function(k){b+=kv(k,String(d2.x[k]));});
-        b+="</div>";
-      }
+      xrows+"</div>";
+    /* 買い目 or PASS */
+    if(r.bets.length){
+      b+='<div class="stmini" style="margin:10px 0 6px">買い目 ── モデル確率 (右端=10%)</div>';
+      r.bets.forEach(function(bt){
+        b+=rowbar(kumiChips(bt.k),(bt.pm||0)*1000,bt.pm!=null?(bt.pm*100).toFixed(2)+"%":"-");
+        b+='<div class="dl" style="margin:-2px 0 6px 70px">¥'+bt.stake+(bt.ev!=null?" ── EV "+bt.ev:"")+(bt.o!=null?" ── @"+bt.o+"倍":"")+"</div>";
+      });
+    }else{
+      b+='<div class="stmini" style="margin:10px 0 6px">PASS ── 見送り</div>'+
+        '<div class="dl">'+(GATE_JP[r.verdict]||r.verdict)+"</div>";
     }
-    r.bets.forEach(function(bt){
-      b+='<div class="dl" style="margin-top:6px">BET '+fmtK(bt.k)+" \u00a5"+bt.stake+(bt.ev!=null?" EV "+bt.ev:"")+(bt.o!=null?" @"+bt.o+"\u500d":"")+"</div>";
-    });
     if(r.pnl!=null)b+='<div class="verdict '+(r.pnl>0?"g":"r")+'" style="margin-top:8px;font-size:13px">'+
-      (r.win?"\u7d50\u679c "+fmtK(String(r.win).replace(/-/g,""))+" \u2500 ":"")+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"\u5186</div>";
+      (r.win?"結果 "+fmtK(String(r.win).replace(/-/g,""))+" ── ":"")+(r.prov?"≈":"")+(r.pnl>=0?"+":"")+r.pnl+"円</div>";
     out+=stg(ENG_SHORT[r.eng]||r.eng,head,b);
   });
   box.innerHTML=out;
@@ -1670,7 +1679,7 @@ function loadLive(){
       var pnl=(r.pnl!=null)?
         '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"</span>":
         (r.bets.length?"\u7d50\u679c\u5f85\u3061":"");
-      return '<div class="lf-row'+((r.id+"|"+r.eng)===liveSel?" on":"")+'" data-id="'+r.id+"|"+r.eng+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
+      return '<div class="lf-row'+(r.id===liveSel?" on":"")+'" data-id="'+r.id+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
         '<span class="lf-e">'+r.eng+'</span>'+
         '<span class="lf-verdict">'+v+'</span><span class="lf-win">'+(r.win||"")+'</span><span class="lf-pnl">'+pnl+"</span></div>";
@@ -1683,7 +1692,7 @@ function loadLive(){
     renderToday(d);
     document.getElementById("live-feed").innerHTML=rows||
       '<div class="lf-row"><span class="lf-verdict">\u672c\u65e5\u306e\u51e6\u7406\u5f85\u3061 \u2500 \u521d\u56de\u7de0\u5207\u307e\u3067\u5f85\u6a5f\u4e2d ('+d.n_scheduled+'R\u4e88\u5b9a)</span></div>';
-    if(!liveSel&&d.races.length){var lr=d.races[d.races.length-1];liveSel=lr.id+"|"+lr.eng;}
+    if(!liveSel&&d.races.length)liveSel=d.races[d.races.length-1].id;
     Array.prototype.forEach.call(document.getElementById("live-feed").children,function(x){
       x.classList.toggle("on",x.getAttribute("data-id")===liveSel);
     });

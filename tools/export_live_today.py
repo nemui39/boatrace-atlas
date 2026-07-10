@@ -122,14 +122,16 @@ def main():
             bf = d.get("bets_final") or []
             if amts is not None:
                 bets = [{"k": b["kumi"], "o": b.get("odds"),
-                         "ev": round(b.get("ev", 0), 2), "stake": amts[b["kumi"]]}
+                         "ev": round(b.get("ev", 0), 2), "stake": amts[b["kumi"]],
+                         "pm": round(b["p_model"], 5) if b.get("p_model") else None}
                         for b in bf if b["kumi"] in amts]
                 for k, a in amts.items():
                     if not any(x["k"] == k for x in bets):
                         bets.append({"k": k, "o": None, "ev": None, "stake": a})
             else:
                 bets = [{"k": b["kumi"], "o": b.get("odds"),
-                         "ev": round(b.get("ev", 0), 2), "stake": b.get("stake")}
+                         "ev": round(b.get("ev", 0), 2), "stake": b.get("stake"),
+                         "pm": round(b["p_model"], 5) if b.get("p_model") else None}
                         for b in bf]
             # debug全フィールドの自動吸い上げ (スカラー+1段ネスト辞書)
             SKIP = {"max_ev", "max_ev_kumi", "max_ev_odds", "ev_median_120",
@@ -150,6 +152,21 @@ def main():
                                                   if isinstance(v2, str) else v2)
                         elif isinstance(v2, float):
                             extra[f"{k}.{k2}"] = round(v2, 4)
+            pf, ko = d.get("p_final_120"), d.get("kumi_order_120")
+            if pf and ko:
+                t5 = [{"k": str(k2).replace("-", ""), "p": round(p2, 4)}
+                      for k2, p2 in sorted(zip(ko, pf), key=lambda x: -x[1])[:20]]
+            else:
+                t5 = [{"k": t["kumi"], "p": round(t["prob"], 4)}
+                      for t in d.get("p_final_top5") or []]
+            for k in ("candidate", "package_for_day", "gate_score", "day_metric_a",
+                      "day_metric_b", "day_metric_combo", "state_mode",
+                      "observation_only"):
+                v = d.get(k)
+                if isinstance(v, bool) or isinstance(v, (int, str)):
+                    extra[k] = str(v)[:60] if isinstance(v, str) else v
+                elif isinstance(v, float):
+                    extra[k] = round(v, 4)
             sc = sched.get(rid, {})
             races.append({
                 "id": rid, "eng": eng,
@@ -165,8 +182,7 @@ def main():
                     "mu": [round(x, 1) for x in dbg.get("ts_mu", [])],
                     "sg": [round(x, 2) for x in dbg.get("ts_sigma", [])],
                     "wr": [round(x, 3) for x in dbg.get("weather_wr", [])],
-                    "t5": [{"k": t["kumi"], "p": round(t["prob"], 4)}
-                           for t in d.get("p_final_top5") or []],
+                    "t5": t5,
                     "med": dbg.get("ev_median_120"), "p90": dbg.get("ev_p90_120"),
                     "nb": dbg.get("n_odds_in_band"),
                     "mev": dbg.get("max_ev"), "mevk": dbg.get("max_ev_kumi"),

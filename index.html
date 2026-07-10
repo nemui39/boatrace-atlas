@@ -299,7 +299,7 @@
   #live-feed{height:340px;overflow-y:auto;border:1px solid var(--line);}
   #slump-box{border:1px solid var(--line);display:flex;flex-direction:column;min-height:340px;}
   #live-feed:empty{display:none;}
-  .lf-row{display:grid;grid-template-columns:40px 78px 52px minmax(0,1fr) 52px 60px;gap:8px;
+  .lf-row{display:grid;grid-template-columns:40px 78px 52px minmax(0,1fr) 100px 60px;gap:8px;
     align-items:center;padding:6px 12px;
     border-bottom:1px solid rgba(20,36,58,.6);font-size:12px;cursor:pointer;}
   .lf-row:hover{background:rgba(92,214,255,.05);}
@@ -309,7 +309,7 @@
   .lf-e{font-family:ui-monospace,Consolas,monospace;font-size:9px;color:var(--mut2);letter-spacing:.08em;}
   .lf-verdict{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .lf-win{font-family:ui-monospace,Consolas,monospace;font-size:11px;text-align:right;color:var(--mut);}
+  .lf-win{font-family:ui-monospace,Consolas,monospace;font-size:11px;text-align:right;color:var(--mut);white-space:nowrap;}
   .lf-pnl{font-family:ui-monospace,Consolas,monospace;font-size:11px;text-align:right;}
   .stmini{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.9;}
 
@@ -1910,7 +1910,7 @@ function loadLive(){
       return '<div class="lf-row'+(r.id===liveSel?" on":"")+'" data-id="'+r.id+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
         '<span class="lf-e">'+(ENG_TAG[r.eng]||r.eng.slice(0,6))+'</span>'+
-        '<span class="lf-verdict" title="'+vfull+'">'+v+'</span><span class="lf-win">'+(r.win||"")+'</span><span class="lf-pnl">'+pnl+"</span></div>";
+        '<span class="lf-verdict" title="'+vfull+'">'+v+'</span><span class="lf-win">'+(r.win?("結果 "+kumiChips(String(r.win).replace(/-/g,""),"f")):"")+'</span><span class="lf-pnl">'+pnl+"</span></div>";
     }).join("");
     if(lastLiveDate&&lastLiveDate!==d.date){
       /* 日付が変わったら前日のワークログ状態を全消去 */

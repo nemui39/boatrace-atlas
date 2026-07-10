@@ -173,6 +173,16 @@
   .rowbar{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
   .rowbar .pbar{flex:1;}
   .rowbar .val{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:76px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .bw-wrap{position:relative;}
+  .bw-grid{position:absolute;top:0;bottom:0;left:32px;right:86px;pointer-events:none;}
+  .bw-grid i{position:absolute;top:0;bottom:0;width:1px;background:rgba(92,214,255,.07);}
+  .bw-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;position:relative;}
+  .bw-track{flex:1;height:12px;position:relative;}
+  .bw-whisk{position:absolute;top:5.5px;height:1px;background:rgba(92,214,255,.5);}
+  .bw-whisk::before,.bw-whisk::after{content:"";position:absolute;top:-3px;width:1px;height:7px;background:rgba(92,214,255,.5);}
+  .bw-whisk::before{left:0;} .bw-whisk::after{right:0;}
+  .bw-dot{position:absolute;top:2px;width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px rgba(92,214,255,.9);}
+  .bw-row .val{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:76px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto;}
   .kvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:2px 22px;}
   .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;border-bottom:1px dashed rgba(20,36,58,.8);padding:5px 0;color:var(--mut);}
   .kv b{font-family:ui-monospace,Consolas,monospace;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
@@ -1564,23 +1574,28 @@ function renderLiveDetail(wid){
   rs.forEach(function(r){
     var d2=r.detail||{},b="";
     if(d2.mu&&d2.mu.length){
-      var mumin=Math.min.apply(null,d2.mu),mumax=Math.max.apply(null,d2.mu);
-      b+='<div class="stmini" style="margin:0 0 6px">TrueSkill \u03bc\u00b1\u03c3</div>';
+      var lo=Math.min.apply(null,d2.mu)-1.5, hi=Math.max.apply(null,d2.mu)+1.5;
+      var bp=function(v){return Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100));};
+      b+='<div class="stmini" style="margin:0 0 6px">TrueSkill \u03bc\u00b1\u03c3</div><div class="bw-wrap">'+
+        '<div class="bw-grid"><i style="left:0%"></i><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i><i style="left:100%"></i></div>';
       d2.mu.forEach(function(m,i2){
-        var pct=mumax>mumin?((m-mumin)/(mumax-mumin))*88+12:50;
-        b+=rowbar(laneChip(i2+1),pct,m.toFixed(1)+" \u00b1"+((d2.sg||[])[i2]||0).toFixed(2));
+        var s2=((d2.sg||[])[i2]||0);
+        b+='<div class="bw-row">'+laneChip(i2+1)+
+          '<div class="bw-track"><div class="bw-whisk" style="left:'+bp(m-s2).toFixed(1)+'%;width:'+(bp(m+s2)-bp(m-s2)).toFixed(1)+'%"></div>'+
+          '<div class="bw-dot" style="left:calc('+bp(m).toFixed(1)+'% - 4px)"></div></div>'+
+          '<span class="val">'+m.toFixed(1)+" \u00b1"+s2.toFixed(2)+"</span></div>";
       });
+      b+="</div>";
     }
     if(d2.s&&d2.s.length){
       var smax=Math.max.apply(null,d2.s);
-      b+='<div class="stmini" style="margin:8px 0 6px">s\u5024 (\u8247\u5225\u5f37\u5ea6)</div>';
-      d2.s.forEach(function(sv,i3){b+=rowbar(laneChip(i3+1),sv/smax*100,sv.toFixed(3));});
+      b+='<div class="stmini" style="margin:8px 0 6px">s\u5024 (\u8247\u5225\u5f37\u5ea6\u30fb\u53f3\u7aef=1.0)</div>';
+      d2.s.forEach(function(sv,i3){b+=rowbar(laneChip(i3+1),sv*100,sv.toFixed(3));});
     }
     if(d2.t5&&d2.t5.length){
-      var pmax=d2.t5[0].p||1;
-      b+='<div class="stmini" style="margin:8px 0 6px">p_final \u4e0a\u4f4d5</div>';
+      b+='<div class="stmini" style="margin:8px 0 6px">p_final \u4e0a\u4f4d5 (\u53f3\u7aef=100%)</div>';
       d2.t5.forEach(function(t5){
-        b+=rowbar('<span class="val" style="width:52px;text-align:left">'+fmtK(t5.k)+"</span>",t5.p/pmax*100,(t5.p*100).toFixed(1)+"%");
+        b+=rowbar('<span class="val" style="width:52px;text-align:left">'+fmtK(t5.k)+"</span>",t5.p*100,(t5.p*100).toFixed(1)+"%");
       });
     }
     b+='<div class="kvgrid" style="margin-top:10px">'+

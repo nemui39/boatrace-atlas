@@ -1850,6 +1850,7 @@ function renderEngStats(d){
   if(Object.keys(by).length>1)t.push(block("TOTAL",T,"#eaf3fa",true));
   document.getElementById("eng-stats").innerHTML=t.join("");
 }
+var slumpKey="",slumpFirst=true;
 function renderSlump(d){
   var el=document.getElementById("slump");
   if(!el)return;
@@ -1869,6 +1870,9 @@ function renderSlump(d){
     if(r.pnl!=null&&r.bets.length){tc+=r.pnl;tpts.push(tc);}
   });
   if(engs.length>1&&tpts.length)series.push({eng:"TOTAL",pts:tpts,col:"#eaf3fa",w:2.5});
+  var sk=series.map(function(s){return s.eng+":"+s.pts.length+":"+(s.pts[s.pts.length-1]||0);}).join("|");
+  if(sk===slumpKey)return;
+  slumpKey=sk;
   var vals=[0];
   series.forEach(function(s){s.pts.forEach(function(v){vals.push(v);});});
   var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
@@ -1891,7 +1895,7 @@ function renderSlump(d){
       svg+='<polygon points="'+P2+','+Y(0).toFixed(1)+' '+pts+' '+lp0[lp0.length-1].split(",")[0]+','+Y(0).toFixed(1)+'" fill="url(#gfill)"/>';
     }
     svg+='<polyline points="'+pts+'" fill="none" stroke="'+c2+'" stroke-width="'+((s.w||2)+4)+'" opacity=".14" vector-effect="non-scaling-stroke"/>';
-    svg+='<polyline points="'+pts+'" pathLength="1" fill="none" stroke="'+c2+'" stroke-width="'+(s.w||2)+'" vector-effect="non-scaling-stroke" style="stroke-dasharray:1;animation:drawin 1.1s ease;filter:drop-shadow(0 0 5px '+c2+')"/>';
+    svg+='<polyline points="'+pts+'" pathLength="1" fill="none" stroke="'+c2+'" stroke-width="'+(s.w||2)+'" vector-effect="non-scaling-stroke" style="'+(slumpFirst?"stroke-dasharray:1;animation:drawin 1.1s ease;":"")+'filter:drop-shadow(0 0 5px '+c2+')"/>';
     var lpz=pts.split(" "),lpt=lpz[lpz.length-1].split(",");
     svg+='<circle cx="'+lpt[0]+'" cy="'+lpt[1]+'" r="3" fill="'+c2+'"><animate attributeName="r" values="2.5;4.5;2.5" dur="2.2s" repeatCount="indefinite"/></circle>';
     var last=s.pts[n-1];
@@ -1899,6 +1903,7 @@ function renderSlump(d){
   });
   svg+="</svg>";
   el.innerHTML='<div class="stmini" style="margin:0 0 4px">SLUMP \u2500 \u7d2f\u7a4d\u53ce\u652f (\u30d9\u30c3\u30c8\u89e3\u6c7a\u9806)</div>'+svg;
+  slumpFirst=false;
 }
 function loadLive(){
   fetch("data/live_today.json",{cache:"no-store"}).then(function(r){

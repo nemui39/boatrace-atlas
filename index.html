@@ -209,6 +209,7 @@
   .wlog .wl-b .dl{color:#9fc6dd;}
   @keyframes lineIn{0%{color:#eaffff;text-shadow:0 0 9px rgba(92,214,255,.95);}100%{color:#9fc6dd;text-shadow:none;}}
   .wlog .wl-b .dl.nw{animation:lineIn .6s ease;}
+  .wlog .wl-b .dl.hd{color:var(--amber);}
   .wlog.typing{border-left-color:var(--amber);box-shadow:0 0 20px rgba(255,180,84,.28);}
   .wlog.typing .wl-h{color:var(--amber);}
   .wlog .wl-b div em{font-style:normal;color:var(--amber);margin-right:8px;}
@@ -1591,21 +1592,61 @@ function detailLines(id){
   });
   return out;
 }
+var wlScript={},wlShown={};
+function buildScript(a){
+  var d=a.ds,L=[];
+  function add(off,txt){L.push({t:d-off,txt:txt});}
+  add(180,"── PRE-FLIGHT");
+  add(178,"GET beforeinfo jcd="+a.s.jcd+" rno="+a.s.rno+" … 200");
+  add(176,"parse teiinfolist … 6艇");
+  add(173,"extime / tilt 取得 … OK");
+  add(170,"展示ST / 進入コース 解析 … OK");
+  add(163,"気象 wind/wave/temp/water 取得");
+  add(150,"── MARKET");
+  add(148,"GET odds3t … 200 (120通り)");
+  add(145,"odds parse 120/120");
+  add(142,"p_mkt 正規化 Σ=1.0000");
+  add(137,"odds 帯域スキャン");
+  add(120,"── FEATURES");
+  add(117,"racecard系 特徴量 … 32列");
+  add(113,"直前系(展示/気象) … 18列");
+  add(109,"TrueSkill lookup μσ ×6");
+  add(105,"weather_course WR lookup ×6");
+  add(100,"feature vector 完成");
+  add(90,"── INFERENCE");
+  add(87,"win6 forward → s値 ×6");
+  add(82,"120-class 確率合成");
+  add(76,"キャリブレーション適用");
+  add(60,"── EV GATE");
+  add(57,"EV = p × odds … 120通り");
+  add(52,"band / threshold 判定");
+  add(38,"送信候補 監視中…");
+  add(18,"bet-server handshake OK");
+  add(0,"締切 ── submit window close");
+  return L;
+}
+function wlLine(t,txt){
+  var cls=txt.indexOf("──")===0?"dl hd":"dl";
+  return '<div class="'+cls+'"><em>'+hhmmss(Math.max(0,t))+"</em>"+txt+"</div>";
+}
+function wlDue(sc,nsec){var n=0;while(n<sc.length&&sc[n].t<=nsec)n++;return n;}
 function wlBody(a,nsec){
+  var id=a.s.id;
+  if(!wlScript[id])wlScript[id]=buildScript(a);
+  var sc=wlScript[id];
+  var due=wlDue(sc,nsec);
+  if(wlShown[id]==null)wlShown[id]=due;
   var lines=[];
-  WL_STAGES.forEach(function(st){
-    var t2=a.ds-st[0];
-    if(nsec>=t2)lines.push("<div><em>"+hhmmss(t2)+"</em>"+st[1]+"</div>");
-  });
-  var p=PROC[a.s.id];
+  sc.slice(0,Math.min(wlShown[id],due)).forEach(function(l){lines.push(wlLine(l.t,l.txt));});
+  var p=PROC[id];
   if(nsec>a.ds){
-    if(RB[a.s.id]){
-      var dl2=detailLines(a.s.id);
-      if(wlReveal[a.s.id]==null)wlReveal[a.s.id]=0;
-      dl2.slice(0,wlReveal[a.s.id]).forEach(function(l2){lines.push('<div class="dl">'+l2+"</div>");});
-      if(wlReveal[a.s.id]>=dl2.length&&p)
-        lines.push('<div><em>'+hhmmss(nsec)+'</em>'+(p.bet?'<span class="g">BET \u78ba\u5b9a'+(p.pnl!=null?" "+(p.pnl>=0?"+":"")+p.pnl+"\u5186":"")+"</span>":"\u898b\u9001\u308a \u78ba\u5b9a")+"</div>");
-    }else lines.push("<div><em>"+hhmmss(nsec)+"</em>\u7d50\u679c\u540c\u671f\u5f85\u3061\u2026</div>");
+    if(RB[id]){
+      var dl2=detailLines(id);
+      if(wlReveal[id]==null)wlReveal[id]=0;
+      dl2.slice(0,wlReveal[id]).forEach(function(l2){lines.push('<div class="dl">'+l2+"</div>");});
+      if(wlReveal[id]>=dl2.length&&p)
+        lines.push('<div><em>'+hhmmss(nsec)+'</em>'+(p.bet?'<span class="g">BET 確定'+(p.pnl!=null?" "+(p.pnl>=0?"+":"")+p.pnl+"円":"")+"</span>":"見送り 確定")+"</div>");
+    }else lines.push(wlLine(nsec,"結果同期待ち…"));
   }
   return lines.join("")+'<span class="cur"></span>';
 }
@@ -1642,6 +1683,8 @@ function renderWorklog(nsec){
   }else{
     Array.prototype.forEach.call(el.children,function(w,i){
       var a=act[i];
+      var sc2=wlScript[a.s.id];
+      if(sc2&&wlShown[a.s.id]!=null&&wlShown[a.s.id]<wlDue(sc2,nsec))return;
       if(RB[a.s.id]&&wlReveal[a.s.id]!=null&&wlReveal[a.s.id]<detailLines(a.s.id).length)return;
       var b=w.querySelector(".wl-b");
       b.innerHTML=wlBody(a,nsec);
@@ -1727,26 +1770,45 @@ document.getElementById("pipeclose").addEventListener("click",closePipe);
 /* ================= boot ================= */
 buildMap();seedInk();resetCamTarget();
 loadLive();setInterval(loadLive,60000);setInterval(schedTick,1000);
-/* burst typing: append one glowing line at a time (140ms) */
+/* typewriter: script lines pre-deadline, real-number burst after sync (140ms/line) */
 setInterval(function(){
   var el=document.getElementById("worklog");
   if(el.style.display==="none"||!lastAct.length)return;
+  var now=new Date(),nsec=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
   Array.prototype.forEach.call(el.children,function(w,i){
     var a=lastAct[i];
-    if(!a||!RB[a.s.id])return;
-    if(wlReveal[a.s.id]==null)wlReveal[a.s.id]=0;
-    var dl2=detailLines(a.s.id), n=wlReveal[a.s.id];
-    if(n<dl2.length){
-      var b=w.querySelector(".wl-b"), cur=b.querySelector(".cur");
+    if(!a)return;
+    var id=a.s.id;
+    if(!wlScript[id])wlScript[id]=buildScript(a);
+    var sc=wlScript[id];
+    var due=wlDue(sc,nsec);
+    if(wlShown[id]==null)wlShown[id]=due;
+    var b=w.querySelector(".wl-b"),cur=b.querySelector(".cur");
+    if(wlShown[id]<due){
+      var l=sc[wlShown[id]];
       var div=document.createElement("div");
-      div.className="dl nw";div.textContent=dl2[n];
+      div.className=(l.txt.indexOf("──")===0?"dl hd nw":"dl nw");
+      div.innerHTML="<em>"+hhmmss(Math.max(0,l.t))+"</em>"+l.txt;
       if(cur)b.insertBefore(div,cur);else b.appendChild(div);
-      wlReveal[a.s.id]=n+1;
+      wlShown[id]++;
       w.classList.add("typing");
       b.scrollTop=b.scrollHeight;
-    }else{
-      w.classList.remove("typing");
+      return;
     }
+    if(nsec>a.ds&&RB[id]){
+      if(wlReveal[id]==null)wlReveal[id]=0;
+      var dl2=detailLines(id);
+      if(wlReveal[id]<dl2.length){
+        var div2=document.createElement("div");
+        div2.className="dl nw";div2.textContent=dl2[wlReveal[id]];
+        if(cur)b.insertBefore(div2,cur);else b.appendChild(div2);
+        wlReveal[id]++;
+        w.classList.add("typing");
+        b.scrollTop=b.scrollHeight;
+        return;
+      }
+    }
+    w.classList.remove("typing");
   });
 },140);
 cam={x:W/2,y:H/2,s:1};

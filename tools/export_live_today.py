@@ -88,6 +88,22 @@ def main():
         total["pnl"] += s.get("pnl_yen") or 0
         total["hits"] += sum(1 for r in s.get("rows", []) if r.get("hits"))
 
+    # 実送信レシート(bet-serverが受理した額)が賭金の正
+    receipts = {}
+    for eng in engines:
+        for f in (day / "micro_live" / f"{eng}_submissions").glob("*_live.json"):
+            try:
+                rc = json.load(open(f))
+            except json.JSONDecodeError:
+                continue
+            rid = rc.get("source_race_id") or f.stem.replace("_live", "")
+            res = rc.get("result") or {}
+            if rc.get("status") != "submitted_success" and res.get("status") != "success":
+                continue
+            receipts[(eng, rid)] = {
+                b["combo"].replace("-", ""): b["amount"]
+                for b in (rc.get("payload") or {}).get("bets", [])}
+
     races = []
     for eng in engines:
         for f in sorted((day / f"{eng}_bets").glob("*.json")):
@@ -96,10 +112,23 @@ def main():
             except json.JSONDecodeError:
                 continue
             rid = d.get("race_id", f.stem)
+            if not rid.startswith(hd):
+                continue  # 当日以外(朝の試行ログ等)を除外
             dbg = d.get("debug", {})
             row = settle.get((eng, rid), {})
-            bets = [{"k": b["kumi"], "o": b.get("odds"), "ev": round(b.get("ev", 0), 2),
-                     "stake": b.get("stake")} for b in d.get("bets_final") or []]
+            amts = receipts.get((eng, rid))
+            bf = d.get("bets_final") or []
+            if amts is not None:
+                bets = [{"k": b["kumi"], "o": b.get("odds"),
+                         "ev": round(b.get("ev", 0), 2), "stake": amts[b["kumi"]]}
+                        for b in bf if b["kumi"] in amts]
+                for k, a in amts.items():
+                    if not any(x["k"] == k for x in bets):
+                        bets.append({"k": k, "o": None, "ev": None, "stake": a})
+            else:
+                bets = [{"k": b["kumi"], "o": b.get("odds"),
+                         "ev": round(b.get("ev", 0), 2), "stake": b.get("stake")}
+                        for b in bf]
             sc = sched.get(rid, {})
             races.append({
                 "id": rid, "eng": eng,

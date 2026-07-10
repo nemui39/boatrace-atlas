@@ -1847,7 +1847,7 @@ function renderEngStats(d){
       '<span>P/L</span><b class="'+(e.pnl>0?"g":(e.pnl<0?"r":""))+'">'+(e.prov?"≈":"")+(e.pnl>=0?"+":"")+e.pnl.toLocaleString("ja-JP")+"円</b>"+
       '<span>回収</span><b class="'+(roi!=null?(roi>=100?"g":"r"):"")+'">'+(roi!=null?roi.toFixed(1)+"%":"-")+"</b></div></div>";
   }
-  var t=[],cols=["#5cd6ff","#ffb454","#4fe08e"];
+  var t=[],cols=["#f2e35c","#f08a2c","#4fe08e"];
   Object.keys(by).forEach(function(eng,i){
     t.push(block(ENG_SHORT[eng]||eng,by[eng],cols[i%3]));
   });
@@ -1869,7 +1869,7 @@ function renderEngStats(d){
     if(o.bet){T.b++;T.stake+=o.stake;}
     if(o.res){T.res++;T.resStake+=o.resStake;T.pnl+=o.pnl;if(o.hit)T.hits++;if(o.prov)T.prov=true;}
   });
-  if(Object.keys(by).length>1)t.push(block("TOTAL",T,"#eaf3fa",true));
+  if(Object.keys(by).length>1)t.push(block("TOTAL",T,"#e05252",true));
   document.getElementById("eng-stats").innerHTML=t.join("");
 }
 var slumpKey="",slumpFirst=true;
@@ -1885,12 +1885,12 @@ function renderSlump(d){
   if(!engs.length){el.innerHTML="";return;}
   var items=engs.map(function(e,i){
     var c=0;
-    return {name:ENG_SHORT[e]||e,col:["#5cd6ff","#ffb454","#4fe08e"][i%3],w:2.2,
+    return {name:ENG_SHORT[e]||e,col:["#f2e35c","#f08a2c","#4fe08e"][i%3],w:2.2,
       pts:by[e].map(function(p){c+=p;return c;})};
   });
   var tc=0,tp=[];
   (d.races||[]).forEach(function(r){if(r.pnl!=null&&r.bets.length){tc+=r.pnl;tp.push(tc);}});
-  if(engs.length>1&&tp.length)items.push({name:"TOTAL",col:"#eaf3fa",w:3,pts:tp});
+  if(engs.length>1&&tp.length)items.push({name:"TOTAL",col:"#e05252",w:3,pts:tp});
   var sk=items.map(function(s){return s.name+":"+s.pts.length+":"+(s.pts[s.pts.length-1]||0);}).join("|");
   if(sk===slumpKey)return;
   slumpKey=sk;

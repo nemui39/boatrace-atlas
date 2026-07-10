@@ -1592,7 +1592,7 @@ function detailLines(id){
   });
   return out;
 }
-var wlScript={},wlShown={};
+var wlScript={},wlShown={},wlType={};
 function buildScript(a){
   var d=a.ds,L=[];
   function add(off,txt){L.push({t:d-off,txt:txt});}
@@ -1768,7 +1768,7 @@ document.getElementById("pipeclose").addEventListener("click",closePipe);
 /* ================= boot ================= */
 buildMap();seedInk();resetCamTarget();
 loadLive();setInterval(loadLive,20000);setInterval(schedTick,1000);
-/* typewriter: script lines pre-deadline, real-number burst after sync (140ms/line) */
+/* typewriter: char-by-char machine-gun typing (3 chars / 30ms) */
 setInterval(function(){
   var el=document.getElementById("worklog");
   if(el.style.display==="none"||!lastAct.length)return;
@@ -1782,33 +1782,41 @@ setInterval(function(){
     var due=wlDue(sc,nsec);
     if(wlShown[id]==null)wlShown[id]=due;
     var b=w.querySelector(".wl-b"),cur=b.querySelector(".cur");
-    if(wlShown[id]<due){
-      var l=sc[wlShown[id]];
-      var div=document.createElement("div");
-      div.className=(l.txt.indexOf("──")===0?"dl hd nw":"dl nw");
-      div.innerHTML="<em>"+hhmmss(Math.max(0,l.t))+"</em>"+l.txt;
-      if(cur)b.insertBefore(div,cur);else b.appendChild(div);
-      wlShown[id]++;
-      w.classList.add("typing");
-      b.scrollTop=b.scrollHeight;
-      return;
-    }
-    if(nsec>a.ds-70&&RB[id]){
-      if(wlReveal[id]==null)wlReveal[id]=0;
-      var dl2=detailLines(id);
-      if(wlReveal[id]<dl2.length){
-        var div2=document.createElement("div");
-        div2.className="dl nw";div2.textContent=dl2[wlReveal[id]];
-        if(cur)b.insertBefore(div2,cur);else b.appendChild(div2);
-        wlReveal[id]++;
-        w.classList.add("typing");
-        b.scrollTop=b.scrollHeight;
-        return;
+    var st=wlType[id]||(wlType[id]={txt:null,el:null,ci:0,kind:null});
+    if(st.el&&!st.el.isConnected){st.txt=null;st.el=null;st.ci=0;}
+    if(!st.txt){
+      var div=null;
+      if(wlShown[id]<due){
+        var l=sc[wlShown[id]];
+        st.txt=l.txt;st.kind="s";st.ci=0;
+        div=document.createElement("div");
+        div.className=(l.txt.indexOf("──")===0?"dl hd nw":"dl nw");
+        div.innerHTML="<em>"+hhmmss(Math.max(0,l.t))+"</em><span></span>";
+        st.el=div.querySelector("span");
+      }else if(nsec>a.ds-70&&RB[id]){
+        if(wlReveal[id]==null)wlReveal[id]=0;
+        var dl2=detailLines(id);
+        if(wlReveal[id]<dl2.length){
+          st.txt=dl2[wlReveal[id]];st.kind="d";st.ci=0;
+          div=document.createElement("div");
+          div.className="dl nw";
+          div.innerHTML="<span></span>";
+          st.el=div.querySelector("span");
+        }
       }
+      if(!div){w.classList.remove("typing");return;}
+      if(cur)b.insertBefore(div,cur);else b.appendChild(div);
+      w.classList.add("typing");
     }
-    w.classList.remove("typing");
+    st.ci+=3;
+    st.el.textContent=st.txt.slice(0,st.ci);
+    b.scrollTop=b.scrollHeight;
+    if(st.ci>=st.txt.length){
+      if(st.kind==="s")wlShown[id]++;else wlReveal[id]++;
+      st.txt=null;st.el=null;st.ci=0;
+    }
   });
-},140);
+},30);
 cam={x:W/2,y:H/2,s:1};
 renderPt();
 requestAnimationFrame(render);

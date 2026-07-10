@@ -1608,8 +1608,8 @@ function renderLiveDetail(wid){
       b+="</div>";
     }
     if(d2.t5&&d2.t5.length){
-      b+='<div class="stmini" style="margin:8px 0 6px">p_final TOP'+d2.t5.length+' (右端=100% ── 目盛 5/10/20%)</div><div class="bw-wrap">'+
-        '<div class="bw-grid k"><i style="left:5%"></i><i style="left:10%"></i><i style="left:20%"></i></div>';
+      b+='<div class="stmini" style="margin:8px 0 6px">p_final TOP'+d2.t5.length+' (右端=100% ── 縦線=10%)</div><div class="bw-wrap">'+
+        '<div class="bw-grid k"><i style="left:10%"></i></div>';
       d2.t5.forEach(function(t5){
         var pw2=(t5.p*100).toFixed(2);
         b+='<div class="bw-row">'+kumiChips(t5.k)+

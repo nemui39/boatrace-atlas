@@ -59,7 +59,7 @@
   #walletbox .open-count::before{content:"●";font-size:8px;vertical-align:2px;margin-right:6px;}
 
   #status{
-    bottom:128px;left:32px;
+    bottom:150px;left:32px;
     font-family:ui-monospace,Consolas,monospace;font-size:11.5px;letter-spacing:.28em;color:var(--mut);
   }
   #status .cursor{display:inline-block;width:8px;height:13px;background:var(--cyan);
@@ -82,18 +82,20 @@
   #hovercard .enter{font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.28em;color:var(--cyan);}
 
   /* ============ venue bar ============ */
-  #venuebar{
+  #dock{
     position:absolute;left:0;right:0;bottom:0;z-index:5;
-    display:flex;align-items:center;gap:4px;
-    padding:10px 16px 12px;
-    background:linear-gradient(180deg, transparent, rgba(3,6,11,.9) 30%);
-    overflow-x:auto;scrollbar-width:none;
+    display:flex;flex-direction:column;
+    background:linear-gradient(180deg, transparent, rgba(3,6,11,.92) 32%);
+  }
+  #venuebar{
+    display:flex;flex-wrap:wrap;justify-content:center;align-items:center;
+    gap:4px;padding:6px 16px 12px;
   }
   #venuebar::-webkit-scrollbar{display:none;}
   .vchip{
     flex:0 0 auto;display:flex;align-items:center;gap:7px;
     background:transparent;border:1px solid var(--line);color:var(--mut);
-    padding:7px 12px;cursor:pointer;font-size:12px;letter-spacing:.08em;
+    padding:6px 10px;cursor:pointer;font-size:11.5px;letter-spacing:.06em;
     font-family:inherit;transition:border-color .15s, color .15s, background .15s;
   }
   .vchip .cno{font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--mut2);letter-spacing:.1em;}
@@ -112,7 +114,7 @@
 
   /* ============ engine view / telemetry ============ */
   #telemetry{
-    bottom:128px;right:32px;text-align:right;
+    bottom:150px;right:32px;text-align:right;
     font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.18em;
     color:var(--mut);line-height:1.9;
   }
@@ -125,7 +127,7 @@
   #engbtn:hover,#pipebtn:hover{color:var(--cyan);border-color:var(--cyan);}
   #engbtn.on,#pipebtn.on{color:#06222f;background:var(--cyan);border-color:var(--cyan);}
   #engineinfo{
-    display:none;bottom:176px;left:32px;max-width:440px;
+    display:none;bottom:196px;left:32px;max-width:440px;
     background:rgba(5,11,19,.9);border:1px solid var(--line);border-left:2px solid var(--cyan);
     padding:12px 16px;font-size:11px;color:var(--mut);line-height:1.9;
   }
@@ -182,8 +184,7 @@
   .verdict{font-size:15px;font-weight:900;letter-spacing:.1em;margin-bottom:10px;}
   .pipe-note{font-size:11px;color:var(--mut2);line-height:1.8;border-top:1px dashed var(--line);padding-top:14px;}
   #schedstrip{
-    position:absolute;left:0;right:0;bottom:58px;z-index:5;display:none;
-    gap:8px;padding:6px 16px;overflow-x:auto;scrollbar-width:none;
+    display:none;gap:8px;padding:8px 16px 4px;overflow-x:auto;scrollbar-width:none;
     font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);
   }
   #schedstrip::-webkit-scrollbar{display:none;}
@@ -411,9 +412,10 @@
 
   <div id="hovercard"></div>
 
-  <div class="hud" id="schedstrip"></div>
-
-  <div id="venuebar"></div>
+  <div id="dock">
+    <div id="schedstrip"></div>
+    <div id="venuebar"></div>
+  </div>
 
   <div id="toast"></div>
 
@@ -577,9 +579,9 @@ function buildMap(){
       bx0=Math.min(bx0,p[0]);by0=Math.min(by0,p[1]);bx1=Math.max(bx1,p[0]);by1=Math.max(by1,p[1]);
     });
   });
-  var pad=0.05, availW=W*(1-pad*2), availH=(H-110)*(1-pad*2);
+  var pad=0.05, availW=W*(1-pad*2), availH=(H-155)*(1-pad*2);
   var s=Math.min(availW/(bx1-bx0), availH/(by1-by0));
-  var ox=(W-(bx1-bx0)*s)/2, oy=((H-70)-(by1-by0)*s)/2+10;
+  var ox=(W-(bx1-bx0)*s)/2, oy=((H-115)-(by1-by0)*s)/2+10;
   function toScr(p){return [(p[0]-bx0)*s+ox,(p[1]-by0)*s+oy];}
 
   screenPolys=raw.map(function(poly){return poly.map(toScr);});

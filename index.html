@@ -207,6 +207,10 @@
     font-size:10px;letter-spacing:.2em;}
   .wlog .wl-b{padding:8px 12px;max-height:240px;overflow:hidden;}
   .wlog .wl-b .dl{color:#9fc6dd;}
+  @keyframes lineIn{0%{color:#eaffff;text-shadow:0 0 9px rgba(92,214,255,.95);}100%{color:#9fc6dd;text-shadow:none;}}
+  .wlog .wl-b .dl.nw{animation:lineIn .6s ease;}
+  .wlog.typing{border-left-color:var(--amber);box-shadow:0 0 20px rgba(255,180,84,.28);}
+  .wlog.typing .wl-h{color:var(--amber);}
   .wlog .wl-b div em{font-style:normal;color:var(--amber);margin-right:8px;}
   .wlog .wl-b .g{color:var(--win);} .wlog .wl-b .r{color:var(--lose);}
   .wlog .cur{display:inline-block;width:7px;height:11px;background:var(--cyan);
@@ -415,13 +419,13 @@
   <div class="hud" id="status"><span id="statustext">INITIALIZING ATLAS</span><span class="cursor"></span></div>
 
   <div class="hud" id="telemetry">
-    <div id="tele1">FLUID 144×81 ── JACOBI×14</div>
+    <div id="tele1">FLUID 144×81 ── JACOBI×10</div>
     <div id="tele2">-- fps ── SIM -- ms</div>
   </div>
 
   <div class="hud" id="engineinfo">
     <b>REALTIME FLUID ENGINE ── NAVIER-STOKES</b>
-    半ラグランジュ移流+圧力Poisson(Jacobi×14/frame)のStam法を毎フレーム実行。<br>
+    半ラグランジュ移流+圧力Poisson(Jacobi×10/frame)のStam法を毎フレーム実行。<br>
     カーソルの動きが外力項、海岸線が壁境界(琥珀=衝突セル)。<br>
     ヒートマップ=圧力場 / ライン=速度場。144×81格子の生の計算値。
   </div>
@@ -583,7 +587,7 @@ var minX,maxX;
 
 function buildMap(){
   W=window.innerWidth; H=window.innerHeight;
-  dpr=Math.min(2,window.devicePixelRatio||1);
+  dpr=Math.min(1.5,window.devicePixelRatio||1);
   canvas.width=W*dpr; canvas.height=H*dpr;
   canvas.style.width=W+"px"; canvas.style.height=H+"px";
 
@@ -741,7 +745,7 @@ function fproject(){
     fdiv[id]=-0.5*(fu[id+1]-fu[id-1]+fv[id+W2]-fv[id-W2]);
     fp[id]=0;
   }
-  for(var k=0;k<14;k++){
+  for(var k=0;k<10;k++){
     for(y=1;y<=FH;y++)for(x=1;x<=FW;x++){
       id=FI(x,y);
       fp[id]=(fdiv[id]+fp[id-1]+fp[id+1]+fp[id-W2]+fp[id+W2])*0.25;
@@ -1024,7 +1028,7 @@ function render(now){
     lastTele=now;
     var mass=0,act=0;
     for(var ti=0;ti<FSZ;ti++){if(fd[ti]>0.02){act++;mass+=fd[ti];}}
-    tele1.textContent="FLUID 144\u00d781 \u2500 JACOBI\u00d714 \u2500 DYE "+mass.toFixed(1)+" \u2500 CELLS "+act;
+    tele1.textContent="FLUID 144\u00d781 \u2500 JACOBI\u00d710 \u2500 DYE "+mass.toFixed(1)+" \u2500 CELLS "+act;
     tele2.textContent=Math.round(1000/fpsEma)+"fps \u2500 SIM "+simEma.toFixed(2)+"ms \u2500 DOTS "+dots.length;
   }
   requestAnimationFrame(render);
@@ -1637,8 +1641,10 @@ function renderWorklog(nsec){
     }).join("");
   }else{
     Array.prototype.forEach.call(el.children,function(w,i){
+      var a=act[i];
+      if(RB[a.s.id]&&wlReveal[a.s.id]!=null&&wlReveal[a.s.id]<detailLines(a.s.id).length)return;
       var b=w.querySelector(".wl-b");
-      b.innerHTML=wlBody(act[i],nsec);
+      b.innerHTML=wlBody(a,nsec);
       b.scrollTop=b.scrollHeight;
     });
   }
@@ -1721,28 +1727,28 @@ document.getElementById("pipeclose").addEventListener("click",closePipe);
 /* ================= boot ================= */
 buildMap();seedInk();resetCamTarget();
 loadLive();setInterval(loadLive,60000);setInterval(schedTick,1000);
-/* burst typing: reveal real numbers at machine speed once sync lands */
+/* burst typing: append one glowing line at a time (140ms) */
 setInterval(function(){
   var el=document.getElementById("worklog");
   if(el.style.display==="none"||!lastAct.length)return;
-  var any=false;
-  lastAct.forEach(function(a){
-    if(RB[a.s.id]){
-      if(wlReveal[a.s.id]==null)wlReveal[a.s.id]=0;
-      var tot=detailLines(a.s.id).length;
-      if(wlReveal[a.s.id]<tot){wlReveal[a.s.id]+=2;any=true;}
+  Array.prototype.forEach.call(el.children,function(w,i){
+    var a=lastAct[i];
+    if(!a||!RB[a.s.id])return;
+    if(wlReveal[a.s.id]==null)wlReveal[a.s.id]=0;
+    var dl2=detailLines(a.s.id), n=wlReveal[a.s.id];
+    if(n<dl2.length){
+      var b=w.querySelector(".wl-b"), cur=b.querySelector(".cur");
+      var div=document.createElement("div");
+      div.className="dl nw";div.textContent=dl2[n];
+      if(cur)b.insertBefore(div,cur);else b.appendChild(div);
+      wlReveal[a.s.id]=n+1;
+      w.classList.add("typing");
+      b.scrollTop=b.scrollHeight;
+    }else{
+      w.classList.remove("typing");
     }
   });
-  if(any){
-    var now=new Date(),nsec=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
-    Array.prototype.forEach.call(el.children,function(w,i){
-      if(!lastAct[i])return;
-      var b=w.querySelector(".wl-b");
-      b.innerHTML=wlBody(lastAct[i],nsec);
-      b.scrollTop=b.scrollHeight;
-    });
-  }
-},100);
+},140);
 cam={x:W/2,y:H/2,s:1};
 renderPt();
 requestAnimationFrame(render);

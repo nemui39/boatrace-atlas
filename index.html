@@ -1818,10 +1818,10 @@ function renderLiveDetail(wid){
     }
     if(d2.t5&&d2.t5.length){
       var pmax=Math.max.apply(null,d2.t5.map(function(t9){return t9.p*100;}));
-      var pcap=Math.max(10,Math.ceil(pmax/10)*10);
+      var pcap=Math.max(5,Math.ceil(pmax/5)*5);
       var glines="";
-      for(var gg=10;gg<pcap;gg+=10)glines+='<i style="left:'+(gg/pcap*100).toFixed(1)+'%"></i>';
-      b+='<div class="stmini" style="margin:8px 0 6px">p_final TOP'+d2.t5.length+' (右端='+pcap+'% ── 縦線=10%刻み)</div><div class="bw-wrap">'+
+      for(var gg=5;gg<pcap;gg+=5)glines+='<i style="left:'+(gg/pcap*100).toFixed(1)+'%"></i>';
+      b+='<div class="stmini" style="margin:8px 0 6px">p_final TOP'+d2.t5.length+' (右端='+pcap+'% ── 縦線=5%刻み)</div><div class="bw-wrap">'+
         '<div class="bw-grid k">'+glines+'</div>';
       d2.t5.forEach(function(t5){
         var pw2=(t5.p*100/pcap*100).toFixed(2);

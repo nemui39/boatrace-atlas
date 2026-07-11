@@ -1796,22 +1796,22 @@ function renderLiveDetail(wid){
       b+='<div class="stmini" style="margin:0 0 6px">TrueSkill μ±σ</div><div class="bw-wrap">'+
         '<div class="bw-grid"><i style="left:0%"></i><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i><i style="left:100%"></i></div>';
       d2.mu.forEach(function(m,i2){
-        var s2=((d2.sg||[])[i2]||0);
+        var s2=((d2.sg||[])[i2]||0),lc=LANE_HEX[i2];
         b+='<div class="bw-row">'+laneChip(i2+1)+
-          '<div class="bw-track"><div class="bw-whisk" style="left:'+bp(m-s2).toFixed(1)+'%;width:'+(bp(m+s2)-bp(m-s2)).toFixed(1)+'%"></div>'+
-          '<div class="bw-dot" style="left:calc('+bp(m).toFixed(1)+'% - 4px)"></div></div>'+
+          '<div class="bw-track"><div class="bw-whisk" style="left:'+bp(m-s2).toFixed(1)+'%;width:'+(bp(m+s2)-bp(m-s2)).toFixed(1)+'%;background:'+lc+';opacity:.55"></div>'+
+          '<div class="bw-dot" style="left:calc('+bp(m).toFixed(1)+'% - 4px);background:'+lc+';box-shadow:0 0 8px '+lc+'"></div></div>'+
           '<span class="val">'+m.toFixed(1)+" ±"+s2.toFixed(2)+"</span></div>";
       });
       b+="</div>";
     }
     if(d2.s&&d2.s.length){
-      b+='<div class="stmini" style="margin:8px 0 6px">s値 (右端=1.0)</div><div class="bw-wrap">'+
+      b+='<div class="stmini" style="margin:8px 0 6px">s値 ── win6モデルの艇別1着強度 (右端=1.0)</div><div class="bw-wrap">'+
         '<div class="bw-grid"><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i><i style="left:100%"></i></div>';
       d2.s.forEach(function(sv,i3){
-        var pw=(sv*100).toFixed(1);
+        var pw=(sv*100).toFixed(1),lc3=LANE_HEX[i3];
         b+='<div class="bw-row">'+laneChip(i3+1)+
-          '<div class="bw-track"><div class="bw-stem" style="width:'+pw+'%"></div>'+
-          '<div class="bw-dot" style="left:calc('+pw+'% - 4px)"></div></div>'+
+          '<div class="bw-track"><div class="bw-stem" style="width:'+pw+'%;background:'+lc3+';opacity:.55"></div>'+
+          '<div class="bw-dot" style="left:calc('+pw+'% - 4px);background:'+lc3+';box-shadow:0 0 8px '+lc3+'"></div></div>'+
           '<span class="val">'+sv.toFixed(3)+"</span></div>";
       });
       b+="</div>";
@@ -2071,6 +2071,7 @@ var wlScript={},wlShown={},wlType={};
 var ENGS=["t3w6_lateflow","condthird_sigma4_laneproj"];
 var ENG_SHORT={t3w6:"T3W6",t3w6_lateflow:"T3W6 LATEFLOW",condthird_sigma4_laneproj:"SIGMA4",condthird_blend020:"BLEND020"};
 var ENG_COLOR={condthird_sigma4_laneproj:"#f2e35c",t3w6_lateflow:"#f08a2c",t3w6:"#f08a2c"};
+var LANE_HEX=["#f2f2f2","#5a6a7c","#d8383a","#2470c9","#e8c231","#2fa864"];
 function buildScript(a){
   var d=a.ds,L=[];
   function add(off,txt){L.push({t:d-off,txt:txt});}

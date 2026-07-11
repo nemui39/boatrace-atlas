@@ -170,8 +170,9 @@
   .sg-leg .g{color:var(--win);} .sg-leg .r{color:var(--lose);}
   .sg-wrap{position:relative;flex:1;min-height:0;}
   .sg-wrap svg{width:100%;height:100%;display:block;}
-  .sg-ylab{position:absolute;left:4px;transform:translateY(-50%);
-    font-family:ui-monospace,Consolas,monospace;font-size:10px;color:#9fb3c8;letter-spacing:.04em;}
+  .sg-ylab{position:absolute;left:0;width:8.8%;text-align:right;transform:translateY(-50%);
+    font-family:ui-monospace,Consolas,monospace;font-size:10px;color:#9fb3c8;letter-spacing:.04em;
+    font-variant-numeric:tabular-nums;}
   #slump:empty{display:none;}
   .slump-leg{display:flex;gap:18px;font-family:ui-monospace,Consolas,monospace;font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums;}
   #venue-live{border:1px solid var(--line);margin-bottom:10px;}
@@ -1849,7 +1850,7 @@ function renderLiveDetail(wid){
     }
     if(r.pnl!=null)b+='<div class="verdict '+(r.pnl>0?"g":"r")+'" style="margin-top:8px;font-size:13px">'+
       (r.win?"結果 "+fmtK(String(r.win).replace(/-/g,""))+" ── ":"")+(r.prov?"≈":"")+(r.pnl>=0?"+":"")+r.pnl+"円</div>";
-    out+=stg(ENG_SHORT[r.eng]||r.eng,head,b);
+    out+=stg('<span style="color:'+(ENG_COLOR[r.eng]||"var(--cyan)")+'">'+(ENG_SHORT[r.eng]||r.eng)+"</span>",head,b);
   });
   box.innerHTML=out;
 }
@@ -2000,7 +2001,7 @@ function loadLive(){
         (r.bets.length?"\u7d50\u679c\u5f85\u3061":"");
       return '<div class="lf-row'+(r.id===liveSel?" on":"")+'" data-id="'+r.id+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
-        '<span class="lf-e">'+(ENG_TAG[r.eng]||r.eng.slice(0,6))+'</span>'+
+        '<span class="lf-e" style="color:'+(ENG_COLOR[r.eng]||"var(--mut2)")+'">'+(ENG_TAG[r.eng]||r.eng.slice(0,6))+'</span>'+
         (r.bets.length||r.win||pnl?
           '<span class="lf-verdict" title="'+vfull+'">'+v+'</span><span class="lf-win">'+(r.win?("結果 "+kumiChips(String(r.win).replace(/-/g,""),"f")):"")+'</span><span class="lf-pnl">'+pnl+"</span>":
           '<span class="lf-verdict" style="grid-column:4/7" title="'+vfull+'">'+v+"</span>")+"</div>";
@@ -2163,7 +2164,7 @@ function renderWorklog(nsec){
   if(ids!==wlIds){
     wlIds=ids;
     el.innerHTML=act.map(function(a){
-      return '<div class="wlog"><div class="wl-h"><span>'+a.s.v+" "+a.s.rno+"R ── "+(ENG_SHORT[a.eng]||a.eng)+'</span><span class="wl-badge"></span></div>'+
+      return '<div class="wlog"><div class="wl-h"><span>'+a.s.v+" "+a.s.rno+'R ── <span style="color:'+(ENG_COLOR[a.eng]||"var(--cyan)")+'">'+(ENG_SHORT[a.eng]||a.eng)+'</span></span><span class="wl-badge"></span></div>'+
         '<div class="wl-b">'+wlBody(a,nsec)+"</div></div>";
     }).join("");
   }else{

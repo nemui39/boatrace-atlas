@@ -242,6 +242,10 @@
   .lane.sm{width:15px;height:15px;font-size:9px;}
   .kch{display:inline-flex;gap:2px;width:60px;flex:0 0 auto;}
   .kch.f{width:auto;margin-right:5px;vertical-align:-3px;}
+  .bl-strip{display:flex;flex-wrap:wrap;gap:8px 6px;margin:18px 0 0;
+    font-family:ui-monospace,Consolas,monospace;font-size:11px;}
+  .bl-item{flex:0 0 32%;display:inline-flex;align-items:center;gap:2px;}
+  .bl-item b{font-weight:400;color:var(--mut);font-variant-numeric:tabular-nums;}
   .kvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:2px 22px;}
   .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;border-bottom:1px dashed rgba(20,36,58,.8);padding:5px 0;color:var(--mut);}
   .kv b{font-family:ui-monospace,Consolas,monospace;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
@@ -1778,7 +1782,14 @@ function renderLiveDetail(wid){
   lastDK=dk;
   if(!rs.length){box.innerHTML=sc?nextRaceHTML(sc):"";return;}
   var head=sc?(sc.v+" "+sc.rno+"R ── 締切 "+sc.dl):id;
-  var out='<div class="pipe-eyebrow" style="margin:20px 0 10px">DETAIL ── '+head+"</div>";
+  var blk="";
+  rs.forEach(function(r0){
+    (r0.bets||[]).forEach(function(bt){
+      blk+='<span class="bl-item">'+kumiChips(bt.k,"f")+(bt.o!=null?"<b>@"+bt.o+"</b>":"")+"</span>";
+    });
+  });
+  var out=(blk?'<div class="bl-strip">'+blk+"</div>":"")+
+    '<div class="pipe-eyebrow" style="margin:8px 0 10px">DETAIL ── '+head+"</div>";
   rs.forEach(function(r){
     var d2=r.detail||{},b="";
     if(d2.mu&&d2.mu.length){

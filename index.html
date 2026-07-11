@@ -997,6 +997,8 @@ var hoverV=null, panelOpen=false, currentV=null, nextRace=null;
 /* ================= render ================= */
 var fpsEma=16.7,simEma=0,lastTele=0,lastNow=0;
 function render(now){
+  /* オーバーレイ表示中/タブ非表示中は地図描画を停止(動画へのCPU譲渡) */
+  if(pipeOpen||panelOpen||document.hidden){requestAnimationFrame(render);return;}
   var t=now-t0;
   var fdlt=lastNow?now-lastNow:16.7; lastNow=now;
   fpsEma=fpsEma*0.92+fdlt*0.08;

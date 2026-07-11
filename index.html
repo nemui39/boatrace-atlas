@@ -1387,13 +1387,12 @@ function enterVenue(v){
       if(ds+120>=nsec&&!pick)pick=s;
     }
     var sel=pick||first;
-    if(sel){
-      liveSel=sel.id;
-      setHover(null);
-      openPipe();
-      renderLiveDetail(liveSel);
-      return;
-    }
+    /* 非開催場は場情報カード+非開催表示で開く */
+    liveSel=sel?sel.id:("venue|"+((v.id<10?"0":"")+v.id));
+    setHover(null);
+    openPipe();
+    renderLiveDetail(liveSel);
+    return;
   }
   currentV=v;
   setHover(null);
@@ -1755,6 +1754,18 @@ function updateVenueLive(jcd,name){
 function renderLiveDetail(wid){
   var box=document.getElementById("live-detail");
   if(!box||!wid){if(box)box.innerHTML="";return;}
+  if(wid.indexOf("venue|")===0){
+    var jc=wid.split("|")[1],vn="";
+    for(var j2=0;j2<VENUES.length;j2++)if(VENUES[j2].id===+jc){vn=VENUES[j2].name;break;}
+    updateVenueLive(jc,vn);
+    renderVenueInfo(jc);
+    if(lastDK!==wid){
+      lastDK=wid;
+      box.innerHTML='<div class="pipe-eyebrow" style="margin:20px 0 10px">'+vn+' ── 本日非開催</div>'+
+        stg("CLOSED",vn,'<div class="dl">本日の開催はありません。左の場データ(水面図・1コース1着率・水面特性)は実測値です。</div>');
+    }
+    return;
+  }
   var id=wid.split("|")[0];
   var rs=RB[id]||[];
   var sc=null;

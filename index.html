@@ -1826,7 +1826,13 @@ function renderLiveDetail(wid){
       d2.t5.forEach(function(t5){
         var pw2=(t5.p*100/pcap*100).toFixed(2);
         var ds=String(t5.k).split("");
-        var g3="linear-gradient(90deg,"+LANE_HEX[+ds[0]-1]+" 0%,"+LANE_HEX[+ds[1]-1]+" 50%,"+LANE_HEX[+ds[2]-1]+" 100%)";
+        var sv3=(d2.s&&d2.s.length===6)?ds.map(function(c9){return Math.max(0.02,d2.s[+c9-1]||0);}):[1,1,1];
+        var tot3=sv3[0]+sv3[1]+sv3[2];
+        var q1=(sv3[0]/tot3*100).toFixed(1),q2=((sv3[0]+sv3[1])/tot3*100).toFixed(1);
+        var g3="linear-gradient(90deg,"+
+          LANE_HEX[+ds[0]-1]+" 0 "+q1+"%,"+
+          LANE_HEX[+ds[1]-1]+" "+q1+"% "+q2+"%,"+
+          LANE_HEX[+ds[2]-1]+" "+q2+"% 100%)";
         b+='<div class="bw-row">'+kumiChips(t5.k)+
           '<div class="bw-track"><div style="position:absolute;top:2px;bottom:2px;left:0;width:'+pw2+'%;background:'+g3+'"></div></div>'+
           '<span class="val">'+(t5.p*100).toFixed(1)+"%</span></div>";

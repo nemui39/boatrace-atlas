@@ -1781,11 +1781,11 @@ function renderLiveDetail(wid){
   var blr="";
   rs.forEach(function(r0){
     (r0.bets||[]).forEach(function(bt){
-      blr+="<tr><td>"+kumiChips(bt.k,"f")+'</td><td class="num r">'+(bt.o!=null?bt.o+"倍":"-")+'</td><td class="num r">¥'+bt.stake+"</td></tr>";
+      blr+="<tr><td>"+kumiChips(bt.k,"f")+'</td><td><span style="color:'+(ENG_COLOR[r0.eng]||"#5cd6ff")+';font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.12em">'+(ENG_TAG[r0.eng]||r0.eng)+'</span></td><td class="num r">'+(bt.o!=null?bt.o+"倍":"-")+'</td><td class="num r">¥'+bt.stake+"</td></tr>";
     });
   });
   var out=(blr?('<div style="margin-top:18px">'+stg("BETS","買い目一覧",
-      '<table class="sh"><thead><tr><th>組合せ</th><th class="r">オッズ</th><th class="r">掛け金</th></tr></thead><tbody>'+blr+"</tbody></table>")+"</div>"):"")+
+      '<table class="sh"><thead><tr><th>組合せ</th><th>ロジック</th><th class="r">オッズ</th><th class="r">掛け金</th></tr></thead><tbody>'+blr+"</tbody></table>")+"</div>"):"")+
     '<div class="pipe-eyebrow" style="margin:8px 0 10px">DETAIL ── '+head+"</div>";
   rs.forEach(function(r){
     var d2=r.detail||{},b="";
@@ -2065,6 +2065,7 @@ function engOf(id,eng){var f=null;(RB[id]||[]).forEach(function(r){if(r.eng===en
 var wlScript={},wlShown={},wlType={};
 var ENGS=["t3w6_lateflow","condthird_sigma4_laneproj"];
 var ENG_SHORT={t3w6:"T3W6",t3w6_lateflow:"T3W6 LATEFLOW",condthird_sigma4_laneproj:"SIGMA4",condthird_blend020:"BLEND020"};
+var ENG_COLOR={condthird_sigma4_laneproj:"#f2e35c",t3w6_lateflow:"#f08a2c",t3w6:"#f08a2c"};
 function buildScript(a){
   var d=a.ds,L=[];
   function add(off,txt){L.push({t:d-off,txt:txt});}

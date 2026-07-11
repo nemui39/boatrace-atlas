@@ -1823,11 +1823,12 @@ function renderLiveDetail(wid){
       for(var gg=5;gg<pcap;gg+=5)glines+='<i style="left:'+(gg/pcap*100).toFixed(1)+'%"></i>';
       b+='<div class="stmini" style="margin:8px 0 6px">p_final TOP'+d2.t5.length+' (右端='+pcap+'% ── 縦線=5%刻み)</div><div class="bw-wrap">'+
         '<div class="bw-grid k">'+glines+'</div>';
-      d2.t5.forEach(function(t5,ti){
+      d2.t5.forEach(function(t5){
         var pw2=(t5.p*100/pcap*100).toFixed(2);
-        var hue=Math.round(ti/Math.max(1,d2.t5.length-1)*300);
+        var ds=String(t5.k).split("");
+        var g3="linear-gradient(90deg,"+LANE_HEX[+ds[0]-1]+" 0%,"+LANE_HEX[+ds[1]-1]+" 50%,"+LANE_HEX[+ds[2]-1]+" 100%)";
         b+='<div class="bw-row">'+kumiChips(t5.k)+
-          '<div class="bw-track"><div style="position:absolute;top:2px;bottom:2px;left:0;width:'+pw2+'%;background:hsl('+hue+',85%,58%)"></div></div>'+
+          '<div class="bw-track"><div style="position:absolute;top:2px;bottom:2px;left:0;width:'+pw2+'%;background:'+g3+'"></div></div>'+
           '<span class="val">'+(t5.p*100).toFixed(1)+"%</span></div>";
       });
       b+="</div>";

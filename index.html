@@ -2010,7 +2010,7 @@ function loadLive(){
         '<span class="g">BET</span> '+r.bets.map(function(b){return kumiChips(b.k,"f");}).join(""):
         gateShort(r.verdict)+(r.max_ev?" \u2500 EV"+r.max_ev:"");
       var pnl=(r.pnl!=null)?
-        '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"</span>":
+        '<span class="'+(r.pnl>0?"g":(r.pnl<0?"r":""))+'">'+(r.ret?"\u8fd4 ":"")+(r.prov?"\u2248":"")+(r.pnl>=0?"+":"")+r.pnl+"</span>":
         (r.bets.length?"\u7d50\u679c\u5f85\u3061":"");
       return '<div class="lf-row'+(r.id===liveSel?" on":"")+'" data-id="'+r.id+'"><span class="lf-t">'+(r.deadline||"--")+'</span>'+
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+

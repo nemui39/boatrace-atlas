@@ -226,11 +226,21 @@ def main():
         except (KeyError, IndexError, TypeError):
             continue
         wk = win.replace("-", "")
-        payout = sum(b["stake"] // 100 * div for b in r["bets"] if b["k"] == wk)
-        stake = sum(b["stake"] for b in r["bets"])
+        # フライング等の返還艇: その艇を含む買い目は掛金払い戻し(収支0)
+        ret = {str(x) for x in (rr["maindata"].get("returnlist") or [])}
+        stake = payout = refunded = 0
+        for b in r["bets"]:
+            if ret and any(c in ret for c in b["k"]):
+                refunded += b["stake"]
+                continue
+            stake += b["stake"]
+            if b["k"] == wk:
+                payout += b["stake"] // 100 * div
         r["win"] = win
         r["pnl"] = payout - stake
         r["prov"] = True
+        if refunded:
+            r["ret"] = refunded
         total["stake"] += stake
         total["payout"] += payout
         total["pnl"] += payout - stake

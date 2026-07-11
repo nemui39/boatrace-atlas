@@ -1737,18 +1737,21 @@ function renderVenueInfo(jcd){
     '<div class="wmap-wrap"><img class="wmap" src="https://www.boatrace.jp/static_extra/pc/images/img_water1_'+jcd+'.png" alt="水面図" loading="lazy">'+
     "</div>";
 }
-function updateVenueLive(jcd,name){
+function updateVenueLive(jcd,name,replay){
   var el=document.getElementById("venue-live");
   if(!el)return;
   if(!jcd){el.innerHTML="";vlJcd=null;return;}
-  if(jcd===vlJcd){
+  var key=jcd+(replay?"r":"l");
+  if(key===vlJcd){
     var h=el.querySelector(".vl-name");
     if(h)h.textContent=name;
     return;
   }
-  vlJcd=jcd;
-  var url="https://race.boatcast.jp/?jo="+jcd;
-  el.innerHTML='<div class="vl-head"><span><span class="lb-dot"></span>LIVE \u2500 <span class="vl-name">'+name+'</span></span>'+
+  vlJcd=key;
+  var url="https://race.boatcast.jp/"+(replay?"replay":"")+"?jo="+jcd;
+  el.innerHTML='<div class="vl-head"><span>'+(replay?
+      '<span style="color:var(--amber)">\u25b6 REPLAY</span>':
+      '<span class="lb-dot"></span>LIVE')+' \u2500 <span class="vl-name">'+name+'</span></span>'+
     '<a href="'+url+'" target="_blank" rel="noopener">\u5225\u30bf\u30d6\u3067\u958b\u304f \u2197</a></div>'+
     '<iframe src="'+url+'" scrolling="no" allow="autoplay; fullscreen" loading="lazy"></iframe>';
 }
@@ -1771,7 +1774,13 @@ function renderLiveDetail(wid){
   var rs=RB[id]||[];
   var sc=null;
   for(var i=0;i<SCHED.length;i++)if(SCHED[i].id===id){sc=SCHED[i];break;}
-  updateVenueLive(id.split("_")[1],sc?sc.v:"");
+  var rp9=false;
+  if(sc&&sc.dl){
+    var dl9=sc.dl.split(":"),ds9=(+dl9[0])*3600+(+dl9[1])*60;
+    var nn=new Date();
+    rp9=(nn.getHours()*3600+nn.getMinutes()*60)>ds9+1500;
+  }
+  updateVenueLive(id.split("_")[1],sc?sc.v:"",rp9);
   renderVenueInfo(id.split("_")[1]);
   var dk=wid+"|"+rs.map(function(r){var st3=r.bets.reduce(function(a3,b3){return a3+(b3.stake||0);},0);return r.eng+":"+(r.pnl!=null?r.pnl:"?")+":"+r.bets.length+":"+st3+(r.settled?"s":"");}).join(",")+
     "|"+(sc?String(sc.tan_t||"")+(sc.card?"c":""):"");

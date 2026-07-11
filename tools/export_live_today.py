@@ -49,16 +49,19 @@ def detect_engines(hd):
     """実弾エンジン = micro_live/*_submissions を持つもの。無ければ *_bets 全部"""
     r = subprocess.run(
         ["ssh", SUB, f"ls -d {REMOTE}/{hd}/micro_live/*_submissions "
+                     f"{REMOTE}/{hd}/micro_live/*_preflight.json "
                      f"{REMOTE}/{hd}/*_bets 2>/dev/null"],
         capture_output=True, text=True)
-    subs, bets = [], []
+    live, bets = set(), []
     for line in r.stdout.split():
         name = Path(line).name
         if name.endswith("_submissions"):
-            subs.append(name[:-len("_submissions")])
+            live.add(name[:-len("_submissions")])
+        elif name.endswith("_preflight.json"):
+            live.add(name[:-len("_preflight.json")])
         elif name.endswith("_bets"):
             bets.append(name[:-len("_bets")])
-    return subs or bets
+    return sorted(live) or bets
 
 
 def rsync(src, dst):

@@ -1892,7 +1892,24 @@ function renderSlump(d){
     (by[r.eng]=by[r.eng]||[]).push(r.pnl);
   });
   var engs=Object.keys(by);
-  if(!engs.length){el.innerHTML="";return;}
+  if(!engs.length){
+    if(slumpKey!=="__empty"){
+      slumpKey="__empty";
+      var H0=308,P0=10;
+      var Y0=function(v){return P0+(1-(v+2000)/4000)*(H0-2*P0);};
+      var sv='<svg viewBox="0 0 560 308" preserveAspectRatio="none" style="width:100%;height:100%;display:block">';
+      [-2000,0,2000].forEach(function(g0){
+        sv+='<line x1="54" y1="'+Y0(g0).toFixed(1)+'" x2="552" y2="'+Y0(g0).toFixed(1)+'" stroke="'+(g0===0?"#e6eef5":"rgba(160,185,210,.16)")+'" stroke-width="'+(g0===0?2.2:1)+'" vector-effect="non-scaling-stroke"/>';
+      });
+      sv+="</svg>";
+      var yl=[2000,0,-2000].map(function(g0){
+        return '<span class="sg-ylab" style="top:'+(Y0(g0)/H0*100).toFixed(2)+'%">'+(g0>0?"+":"")+g0.toLocaleString("ja-JP")+"</span>";
+      }).join("");
+      el.innerHTML='<div class="sg-leg"><span style="color:var(--mut2)">SLUMP \u2500 WAITING FIRST RESULT\u2026</span></div>'+
+        '<div class="sg-wrap">'+sv+yl+"</div>";
+    }
+    return;
+  }
   var items=engs.map(function(e,i){
     var c=0;
     return {name:ENG_SHORT[e]||e,col:["#f2e35c","#f08a2c","#4fe08e"][i%3],w:2.2,

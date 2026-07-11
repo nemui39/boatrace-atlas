@@ -1879,7 +1879,7 @@ function renderEngStats(d){
   }
   var t=[],cols=["#f2e35c","#f08a2c","#4fe08e"];
   Object.keys(by).forEach(function(eng,i){
-    t.push(block(ENG_SHORT[eng]||eng,by[eng],cols[i%3]));
+    t.push(block(ENG_SHORT[eng]||eng,by[eng],ENG_COLOR[eng]||cols[i%3]));
   });
   /* TOTAL: 同一レースは合算(どちらかが賭けたレース=1カウント) */
   var byId={};
@@ -1932,7 +1932,7 @@ function renderSlump(d){
   }
   var items=engs.map(function(e,i){
     var c=0;
-    return {name:ENG_SHORT[e]||e,col:["#f2e35c","#f08a2c","#4fe08e"][i%3],w:2.2,
+    return {name:ENG_SHORT[e]||e,col:ENG_COLOR[e]||["#f2e35c","#f08a2c","#4fe08e"][i%3],w:2.2,
       pts:by[e].map(function(p){c+=p;return c;})};
   });
   var tc=0,tp=[];

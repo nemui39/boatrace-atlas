@@ -171,7 +171,7 @@ def main():
             pf, ko = d.get("p_final_120"), d.get("kumi_order_120")
             if pf and ko:
                 t5 = [{"k": str(k2).replace("-", ""), "p": round(p2, 4)}
-                      for k2, p2 in sorted(zip(ko, pf), key=lambda x: -x[1])[:20]]
+                      for k2, p2 in sorted(zip(ko, pf), key=lambda x: -x[1])[:30]]
             else:
                 t5 = [{"k": t["kumi"], "p": round(t["prob"], 4)}
                       for t in d.get("p_final_top5") or []]

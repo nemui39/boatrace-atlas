@@ -175,7 +175,9 @@
     font-variant-numeric:tabular-nums;}
   #slump:empty{display:none;}
   .slump-leg{display:flex;gap:18px;font-family:ui-monospace,Consolas,monospace;font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums;}
-  #venue-live{border:1px solid var(--line);margin-bottom:10px;}
+  #venue-live{border:1px solid var(--line);margin-bottom:10px;
+    transform:translateZ(0);contain:layout style;}
+  #live-detail,#live-feed,#slump-box,#venue-info{contain:layout style;}
   #venue-live:empty{display:none;}
   .vl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding:7px 12px;border-bottom:1px solid var(--line);
@@ -1774,7 +1776,7 @@ function renderLiveDetail(wid){
   updateVenueLive(id.split("_")[1],sc?sc.v:"");
   renderVenueInfo(id.split("_")[1]);
   var dk=wid+"|"+rs.map(function(r){var st3=r.bets.reduce(function(a3,b3){return a3+(b3.stake||0);},0);return r.eng+":"+(r.pnl!=null?r.pnl:"?")+":"+r.bets.length+":"+st3+(r.settled?"s":"");}).join(",")+
-    "|"+(sc?String(sc.tan_t||"")+(sc.card?"c":""):"");
+    "|"+((!rs.length&&sc)?String(sc.tan_t||"")+(sc.card?"c":""):"");
   if(dk===lastDK)return;
   lastDK=dk;
   if(!rs.length){box.innerHTML=sc?nextRaceHTML(sc):"";return;}

@@ -199,8 +199,8 @@
   #dice{display:inline-block;width:20px;height:20px;background:#f2f2f2;border-radius:5px;
     position:relative;margin-left:10px;vertical-align:-1px;cursor:grab;touch-action:none;
     box-shadow:0 0 8px rgba(242,242,242,.3);}
-  #dice::after{content:"";position:absolute;inset:0;margin:auto;width:7px;height:7px;
-    border-radius:50%;background:#e0322e;}
+  #dice .pip{position:absolute;width:5px;height:5px;border-radius:50%;background:#1a1a1a;}
+  #dice .pip.c{width:8px;height:8px;background:#e0322e;}
   #dice.fly{position:fixed;z-index:99;cursor:grabbing;margin:0;}
   .pipe-sub{font-size:12.5px;color:var(--mut);line-height:1.9;margin:0 0 18px;}
   .pipe-races{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;}
@@ -2269,6 +2269,17 @@ function togglePipe(){pipeOpen?closePipe():openPipe();}
 document.getElementById("pipeclose").addEventListener("click",closePipe);
 /* ===== throwable dice ===== */
 var dice=document.getElementById("dice");
+var diceFaceT=0;
+function diceFace(n){
+  var a=2.5,b=7.5,c=12.5;
+  var P={1:[[6,6,1]],2:[[a,a],[c,c]],3:[[a,a],[b,b],[c,c]],
+    4:[[a,a],[a,c],[c,a],[c,c]],5:[[a,a],[a,c],[b,b],[c,a],[c,c]],
+    6:[[a,a],[a,b],[a,c],[c,a],[c,b],[c,c]]};
+  dice.innerHTML=P[n].map(function(p){
+    return '<i class="pip'+(p[2]?" c":"")+'" style="left:'+p[0]+'px;top:'+p[1]+'px"></i>';
+  }).join("");
+}
+diceFace(1);
 var dGrab=false,dFree=false,dX=0,dY=0,dVX=0,dVY=0,dR=0,dVR=0,dPts=[],dRects=[];
 function diceRects(){
   var out=[];
@@ -2303,7 +2314,8 @@ dice.addEventListener("pointerup",function(){
   var a=dPts[0],b=dPts[dPts.length-1];
   var dt=Math.max(1,b[2]-a[2]);
   dVX=(b[0]-a[0])/dt*16;dVY=(b[1]-a[1])/dt*16;
-  dVR=dVX*2.2;
+  dVR=dVX*5;
+  if(Math.abs(dVR)<10)dVR=(Math.random()<.5?-1:1)*(10+Math.random()*8);
   dRects=diceRects();
   dFree=true;
   requestAnimationFrame(diceStep);
@@ -2313,6 +2325,8 @@ function diceStep(){
   var prevBottom=dY+20;
   dVY+=0.9;
   dX+=dVX;dY+=dVY;dR+=dVR;
+  var nw=performance.now();
+  if(nw-diceFaceT>70){diceFaceT=nw;diceFace(1+Math.floor(Math.random()*6));}
   dVX*=0.995;
   if(dX<4){dX=4;dVX=Math.abs(dVX)*0.6;}
   if(dX>window.innerWidth-24){dX=window.innerWidth-24;dVX=-Math.abs(dVX)*0.6;}
@@ -2323,7 +2337,7 @@ function diceStep(){
       if(dX+16>r.left&&dX+4<r.right&&bottom>=r.top&&prevBottom<=r.top+Math.max(6,dVY)){
         dY=r.top-20;
         dVY=-dVY*0.45;dVX*=0.75;dVR*=0.7;
-        if(Math.abs(dVY)<1.6){dVY=0;dVX=0;dVR=0;dFree=false;}
+        if(Math.abs(dVY)<1.6){dVY=0;dVX=0;dVR=0;dFree=false;diceFace(1+Math.floor(Math.random()*6));}
         landed=true;break;
       }
     }
@@ -2332,7 +2346,7 @@ function diceStep(){
   if(!landed&&dY+20>=floor){
     dY=floor-20;
     dVY=-dVY*0.45;dVX*=0.75;dVR*=0.7;
-    if(Math.abs(dVY)<1.6){dVY=0;dVX=0;dVR=0;dFree=false;}
+    if(Math.abs(dVY)<1.6){dVY=0;dVX=0;dVR=0;dFree=false;diceFace(1+Math.floor(Math.random()*6));}
   }
   dice.style.left=dX+"px";dice.style.top=dY+"px";
   dice.style.transform="rotate("+dR.toFixed(1)+"deg)";

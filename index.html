@@ -1946,9 +1946,9 @@ function renderSlump(d){
   var items=engs.map(function(e,i){
     var c=0;
     return {name:ENG_SHORT[e]||e,col:ENG_COLOR[e]||["#f2e35c","#f08a2c","#4fe08e"][i%3],w:2.2,
-      pts:by[e].map(function(p){c+=p;return c;})};
+      pts:[0].concat(by[e].map(function(p){c+=p;return c;}))};
   });
-  var tc=0,tp=[];
+  var tc=0,tp=[0];
   (d.races||[]).forEach(function(r){if(r.pnl!=null&&r.bets.length){tc+=r.pnl;tp.push(tc);}});
   if(engs.length>1&&tp.length)items.push({name:"TOTAL",col:"#e05252",w:3,pts:tp});
   var sk=items.map(function(s){return s.name+":"+s.pts.length+":"+(s.pts[s.pts.length-1]||0);}).join("|");
@@ -1971,7 +1971,7 @@ function renderSlump(d){
     var n=s.pts.length;
     function X(i2){return X0+(n<=1?(W2-X0-8):i2/(n-1)*(W2-X0-8));}
     var pts=s.pts.map(function(v,i2){return X(i2).toFixed(1)+","+Y(v).toFixed(1);}).join(" ");
-    svg+='<polyline points="'+X0+','+Y(0).toFixed(1)+' '+pts+'" fill="none" stroke="'+s.col+'" stroke-width="'+s.w+'" vector-effect="non-scaling-stroke"/>';
+    svg+='<polyline points="'+pts+'" fill="none" stroke="'+s.col+'" stroke-width="'+s.w+'" vector-effect="non-scaling-stroke"/>';
   });
   svg+="</svg>";
   var ylab=[hi,0,lo].map(function(g2){
@@ -1981,7 +1981,8 @@ function renderSlump(d){
     var last=s.pts[s.pts.length-1];
     return '<span style="color:'+s.col+'">'+s.name+' <b class="'+(last>0?"g":(last<0?"r":""))+'">'+(last>=0?"+":"")+last.toLocaleString("ja-JP")+"円</b></span>";
   }).join("")+"</div>";
-  el.innerHTML=leg+'<div class="sg-wrap">'+svg+ylab+"</div>";
+  var xlab='<span style="position:absolute;left:'+(X0/W2*100).toFixed(2)+'%;bottom:0;transform:translateX(-18%);font-family:ui-monospace,Consolas,monospace;font-size:9px;color:var(--mut2);letter-spacing:.08em">0 BET</span>';
+  el.innerHTML=leg+'<div class="sg-wrap">'+svg+ylab+xlab+"</div>";
 }
 function loadLive(){
   fetch("data/live_today.json",{cache:"no-store"}).then(function(r){

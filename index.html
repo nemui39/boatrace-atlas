@@ -1743,6 +1743,8 @@ function updateVenueLive(jcd,name){
   var el=document.getElementById("venue-live");
   if(!el)return;
   if(!jcd){el.innerHTML="";vlJcd=null;return;}
+  /* 閉じる直前のfetchが後から完了しても、裏でiframeを再生成しない */
+  if(!pipeOpen)return;
   if(jcd===vlJcd){
     var h=el.querySelector(".vl-name");
     if(h)h.textContent=name;
@@ -2276,6 +2278,8 @@ function schedTick(){
 function openPipe(){pipeOpen=true;pipeEl.classList.add("open");loadLive();}
 function closePipe(){
   pipeOpen=false;pipeEl.classList.remove("open");
+  /* 非表示だけではiframeの音声が流れ続けるため、TOP復帰時に動画を破棄 */
+  updateVenueLive(null);
   /* サイコロを文中に戻す */
   dFree=false;dGrab=false;
   if(dice){dice.classList.remove("fly");dice.style.left="";dice.style.top="";dice.style.transform="";}

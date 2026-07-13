@@ -17,6 +17,9 @@ REMOTE = "/home/sub/stack2tan/data/live"
 REPO = Path(__file__).resolve().parent.parent
 CACHE = Path("/tmp/botrace_live_cache")
 STACK = Path("/home/nemui/stack2tan")
+# 実弾micro_liveから外れても、診断表示だけ継続するshadowエンジン。
+# bets_finalは公開側で無効化し、賭金・収支へは混ぜない。
+DISPLAY_ONLY_ENGINES = {"t3w6_calB"}
 
 
 def fnum(x, default=None):
@@ -46,13 +49,13 @@ def fetch_result(hd, jcd, rno, cache_dir):
 
 
 def detect_engines(hd):
-    """実弾エンジン = micro_live/*_submissions を持つもの。無ければ *_bets 全部"""
+    """実弾エンジンに、存在する観測専用エンジンを加えて返す。"""
     r = subprocess.run(
         ["ssh", SUB, f"ls -d {REMOTE}/{hd}/micro_live/*_submissions "
                      f"{REMOTE}/{hd}/micro_live/*_preflight.json "
                      f"{REMOTE}/{hd}/*_bets 2>/dev/null"],
         capture_output=True, text=True)
-    live, bets = set(), []
+    live, bets = set(), set()
     for line in r.stdout.split():
         name = Path(line).name
         if name.endswith("_submissions"):
@@ -60,8 +63,10 @@ def detect_engines(hd):
         elif name.endswith("_preflight.json"):
             live.add(name[:-len("_preflight.json")])
         elif name.endswith("_bets"):
-            bets.append(name[:-len("_bets")])
-    return sorted(live) or bets
+            bets.add(name[:-len("_bets")])
+    active = live or bets
+    display_only = (DISPLAY_ONLY_ENGINES & bets) - active
+    return sorted(active | display_only), display_only
 
 
 def rsync(src, dst):
@@ -73,8 +78,8 @@ def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
     day.mkdir(parents=True, exist_ok=True)
-    engines = detect_engines(hd)
-    print("engines:", engines)
+    engines, display_only = detect_engines(hd)
+    print("engines:", engines, "display_only:", sorted(display_only))
     rsync(f"{SUB}:{REMOTE}/{hd}/schedule.json", day)
     rsync(f"{SUB}:{REMOTE}/{hd}/morning_status.json", day)
     rsync(f"{SUB}:{REMOTE}/{hd}/venue_*_racecard.json", day / "cards")
@@ -124,6 +129,7 @@ def main():
 
     races = []
     for eng in engines:
+        is_observer = eng in display_only
         for f in sorted((day / f"{eng}_bets").glob("*.json")):
             try:
                 d = json.load(open(f))
@@ -149,6 +155,8 @@ def main():
                          "ev": round(b.get("ev", 0), 2), "stake": b.get("stake"),
                          "pm": round(b["p_model"], 5) if b.get("p_model") else None}
                         for b in bf]
+            if is_observer:
+                bets = []  # shadowの疑似買い目を実弾成績へ混ぜない
             # debug全フィールドの自動吸い上げ (スカラー+1段ネスト辞書)
             SKIP = {"max_ev", "max_ev_kumi", "max_ev_odds", "ev_median_120",
                     "ev_p90_120", "n_odds_in_band", "s_values", "ts_mu",
@@ -186,9 +194,11 @@ def main():
             sc = sched.get(rid, {})
             races.append({
                 "id": rid, "eng": eng,
+                "obs": is_observer,
                 "venue": sc.get("venue_name"), "rno": sc.get("rno"),
                 "deadline": sc.get("deadline"),
-                "verdict": "bet" if bets else dbg.get("max_ev_gate", "no_ev"),
+                "verdict": ("observe" if is_observer else
+                            ("bet" if bets else dbg.get("max_ev_gate", "no_ev"))),
                 "max_ev": dbg.get("max_ev"), "max_ev_kumi": dbg.get("max_ev_kumi"),
                 "bets": bets,
                 "win": row.get("winno_3t"), "pnl": row.get("pnl_yen"),

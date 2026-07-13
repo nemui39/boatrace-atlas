@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="BOTRACEポートフォリオのネットワーク、ライブ同期、WSL2、SSH、Cloudflare Tunnel構成を説明する技術レポート">
+  <title>BOTRACE公開基盤 技術レポート</title>
+  <style>
+    :root {
+      --bg: #071019;
+      --panel: #0d1925;
+      --panel2: #101f2d;
+      --text: #e8f2f8;
+      --muted: #9bb0c0;
+      --line: #23394a;
+      --cyan: #5cd6ff;
+      --amber: #ffb454;
+      --green: #55df98;
+      --red: #ff7b7b;
+      --purple: #b8a1ff;
+      --max: 1160px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 85% 5%, rgba(92,214,255,.11), transparent 25rem),
+        radial-gradient(circle at 5% 40%, rgba(184,161,255,.08), transparent 30rem),
+        var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
+        "Yu Gothic UI", Meiryo, sans-serif;
+      line-height: 1.8;
+    }
+    a { color: var(--cyan); }
+    code, pre, .mono {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    }
+    header, main, footer { width: min(var(--max), calc(100% - 40px)); margin-inline: auto; }
+    header { padding: 72px 0 42px; }
+    .eyebrow { color: var(--cyan); font: 700 12px/1.4 ui-monospace, monospace; letter-spacing: .24em; }
+    h1 { max-width: 850px; margin: 10px 0 18px; font-size: clamp(36px, 7vw, 72px); line-height: 1.08; letter-spacing: -.035em; }
+    .lead { max-width: 850px; color: #c1d0dc; font-size: clamp(17px, 2.2vw, 22px); }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 25px; }
+    .tag { padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
+    nav {
+      position: sticky; top: 0; z-index: 10; border-block: 1px solid var(--line);
+      background: rgba(7,16,25,.9); backdrop-filter: blur(12px);
+    }
+    nav .inner { width: min(var(--max), calc(100% - 40px)); margin: auto; display: flex; gap: 18px; overflow-x: auto; padding: 10px 0; }
+    nav a { color: var(--muted); white-space: nowrap; text-decoration: none; font-size: 13px; }
+    nav a:hover { color: var(--cyan); }
+    section { padding: 58px 0; border-bottom: 1px solid rgba(35,57,74,.65); }
+    h2 { margin: 0 0 22px; font-size: clamp(27px, 4vw, 40px); line-height: 1.25; }
+    h3 { margin: 30px 0 10px; font-size: 20px; }
+    h4 { margin: 0 0 8px; font-size: 15px; color: var(--cyan); }
+    p { margin: 10px 0; }
+    .muted { color: var(--muted); }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .card, .callout, .step, .qa {
+      background: linear-gradient(145deg, rgba(16,31,45,.95), rgba(11,23,34,.95));
+      border: 1px solid var(--line); border-radius: 12px;
+    }
+    .card { padding: 20px; }
+    .card strong { display: block; font-size: 22px; color: var(--cyan); }
+    .card span { color: var(--muted); font-size: 13px; }
+    .callout { padding: 18px 20px; border-left: 4px solid var(--cyan); }
+    .callout.warn { border-left-color: var(--amber); }
+    .callout.risk { border-left-color: var(--red); }
+    .callout.good { border-left-color: var(--green); }
+    .diagram {
+      display: grid; grid-template-columns: 1fr 58px 1fr 58px 1fr;
+      align-items: stretch; gap: 10px; margin: 26px 0;
+    }
+    .node { min-height: 170px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+    .node .label { color: var(--cyan); font: 700 11px/1.5 ui-monospace, monospace; letter-spacing: .18em; }
+    .node b { display: block; margin: 6px 0; font-size: 20px; }
+    .node ul { margin: 8px 0 0; padding-left: 19px; color: var(--muted); font-size: 13px; }
+    .arrow { display: grid; place-items: center; color: var(--amber); font-size: 29px; font-weight: 800; }
+    .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; counter-reset: flow; margin: 24px 0; }
+    .step { position: relative; min-height: 160px; padding: 48px 16px 18px; }
+    .step::before { counter-increment: flow; content: "0" counter(flow); position: absolute; top: 14px; left: 16px; color: var(--amber); font: 700 15px/1 ui-monospace, monospace; }
+    .step b { display: block; margin-bottom: 5px; }
+    .step p { color: var(--muted); font-size: 13px; line-height: 1.65; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+    th, td { padding: 13px 15px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--panel2); color: var(--cyan); }
+    td { background: rgba(13,25,37,.65); }
+    pre { overflow-x: auto; padding: 17px 18px; border: 1px solid var(--line); border-radius: 10px; background: #050b11; color: #d5e7f2; line-height: 1.6; font-size: 13px; }
+    code { color: #ccecff; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .qa { padding: 18px 20px; }
+    .qa b { color: var(--amber); }
+    .qa p { margin-bottom: 0; color: #c4d2dc; }
+    .layers { display: grid; gap: 8px; margin: 20px 0; }
+    .layer { display: grid; grid-template-columns: 150px 1fr; gap: 16px; padding: 13px 16px; border: 1px solid var(--line); background: rgba(13,25,37,.75); border-radius: 8px; }
+    .layer b { color: var(--purple); }
+    ul, ol { padding-left: 22px; }
+    li + li { margin-top: 6px; }
+    footer { padding: 36px 0 70px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 850px) {
+      .summary { grid-template-columns: 1fr 1fr; }
+      .diagram { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); min-height: 30px; }
+      .flow { grid-template-columns: 1fr 1fr; }
+      .two { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 520px) {
+      header, main, footer, nav .inner { width: min(100% - 24px, var(--max)); }
+      header { padding-top: 45px; }
+      .summary, .flow { grid-template-columns: 1fr; }
+      .layer { grid-template-columns: 1fr; gap: 3px; }
+      th, td { padding: 9px; font-size: 12px; }
+    }
+    @media print {
+      :root { --bg: #fff; --text: #14202b; --muted: #455767; --line: #b9c5ce; --panel: #f4f7f9; --panel2: #edf2f5; }
+      body { background: #fff; }
+      nav { display: none; }
+      header { padding-top: 20px; }
+      section { break-inside: avoid; }
+      .card, .callout, .step, .qa, td { background: #fff; }
+      pre { background: #f4f7f9; color: #14202b; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">BOTRACE / INFRASTRUCTURE REPORT</div>
+    <h1>ライブAIを、<br>安全に外へ見せるまで。</h1>
+    <p class="lead">
+      2台のPCで動く予測システムからデータを同期し、WSL2上の可視化サイトを
+      SSHとCloudflare TunnelでLAN・インターネットへ公開する構成を、面接で説明できる粒度に整理した技術レポートです。
+    </p>
+    <div class="meta">
+      <span class="tag">WSL2</span><span class="tag">SSH / rsync</span>
+      <span class="tag">Python</span><span class="tag">Vanilla JavaScript</span>
+      <span class="tag">Canvas</span><span class="tag">Cloudflare Tunnel</span>
+      <span class="tag">2026-07-13 Named Tunnel公開済み</span>
+    </div>
+  </header>
+
+  <nav aria-label="目次"><div class="inner">
+    <a href="#overview">全体像</a><a href="#sync">同期</a><a href="#server">サーバー</a>
+    <a href="#frontend">フロントエンド</a><a href="#wsl">WSLとFirewall</a>
+    <a href="#ssh">SSHトンネル</a><a href="#cloudflare">外部公開</a>
+    <a href="#security">本公開前</a><a href="#interview">面接用</a><a href="#commands">コマンド</a>
+  </div></nav>
+
+  <main>
+    <section id="overview">
+      <h2>01. まず30秒で説明する全体像</h2>
+      <div class="callout good">
+        <strong>要約：</strong> サブPCで稼働する3連単AIの成果物を、メインPCがSSH＋rsyncで読み取り専用同期します。
+        メインPCのWSL2でJSONへ整形し、依存ゼロのWeb画面が定期取得します。LAN内の確認にはSSH逆トンネル、
+        外部公開にはCloudflare Tunnelを使うため、ルーターのポート開放なしでHTTPS公開できます。
+      </div>
+
+      <div class="summary">
+        <div class="card"><strong>2台</strong><span>推論用サブPC＋可視化用メインPC</span></div>
+        <div class="card"><strong>60秒</strong><span>サブPCからのデータ同期間隔</span></div>
+        <div class="card"><strong>20秒</strong><span>ブラウザのライブJSON取得間隔</span></div>
+        <div class="card"><strong>0開放</strong><span>Cloudflare利用時の受信ポート開放</span></div>
+      </div>
+
+      <div class="diagram" aria-label="システム構成図">
+        <div class="node">
+          <span class="label">SUB PC / DATA PRODUCER</span>
+          <b>AI推論・実運用</b>
+          <ul><li>stack2tanライブ処理</li><li>レース、予測、買い目、精算artifact</li><li>LAN内SSHサーバー</li></ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="node">
+          <span class="label">MAIN PC / WSL2</span>
+          <b>同期・整形・Web配信</b>
+          <ul><li>SSH＋rsyncでpull</li><li>Pythonでlive_today.json生成</li><li>静的Webサーバー :8000</li></ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="node">
+          <span class="label">VIEWERS</span>
+          <b>LAN / Internet</b>
+          <ul><li>サブPC：SSH逆トンネル</li><li>外部：Cloudflare HTTPS</li><li>ブラウザ：HTML/JS/Canvas</li></ul>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th>責務</th><th>置き場所</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>AI推論と実運用データ</td><td>サブPC</td><td>学習・推論側と、公開画面側の負荷・責任を分離するため。</td></tr>
+          <tr><td>公開用データの整形</td><td>メインPC WSL2</td><td>生ログをそのまま公開せず、表示に必要な項目だけJSONへ変換するため。</td></tr>
+          <tr><td>画面と静的配信</td><td>メインPC WSL2</td><td>ローカルで素早く変更・確認し、同じ成果物をトンネル経由で見せるため。</td></tr>
+          <tr><td>公開HTTPS入口</td><td>Cloudflare Edge</td><td>自宅ルーターの受信ポートを開けず、外向き接続だけで公開するため。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="sync">
+      <h2>02. サブPCから何をどう同期するか</h2>
+      <p>
+        メインPCの <code>tools/export_live_today.py</code> が、SSHホスト別名 <code>sub</code> を使って
+        サブPCのライブディレクトリを参照します。現在のLANではメインが <code>192.168.0.37</code>、
+        サブが <code>192.168.0.238</code> です。どちらもインターネットから直接到達しないプライベートIPです。
+      </p>
+
+      <div class="flow">
+        <div class="step"><b>成果物生成</b><p>サブPCのstack2tanが、スケジュール、推論、買い目、送信レシート、精算結果を出力。</p></div>
+        <div class="step"><b>対象検出</b><p>メインPCがSSHで当日稼働しているエンジン名とファイルを確認。</p></div>
+        <div class="step"><b>差分転送</b><p><code>rsync -az</code>で必要なファイルをメインPCの一時キャッシュへpull。</p></div>
+        <div class="step"><b>公開用変換</b><p>Pythonが必要項目だけを抽出し、暫定精算や返還処理も加えて単一JSONへ整形。</p></div>
+        <div class="step"><b>画面更新</b><p>ブラウザが20秒ごとにJSONを取得し、再ビルドなしでライブ表示を更新。</p></div>
+      </div>
+
+      <h3>なぜSSH＋rsyncなのか</h3>
+      <div class="two">
+        <div class="card"><h4>SSH</h4><p>通信を暗号化し、公開鍵認証とホスト別名で接続を管理できます。FTP用の別サービスを増やす必要がありません。</p></div>
+        <div class="card"><h4>rsync</h4><p>毎回全コピーせず差分だけ転送できます。ファイルベースの既存artifactと相性がよく、実装も運用も単純です。</p></div>
+      </div>
+      <div class="callout">
+        <strong>重要な設計判断：</strong> 同期方向は「メインPCがサブPCからpull」です。
+        可視化側からサブPCへ書き込まないため、ポートフォリオ画面の不具合が推論・投票系へ波及しにくい構成です。
+      </div>
+      <pre><code># 60秒ごとの同期ループ（概念）
+while true; do
+  python3 tools/export_live_today.py
+  sleep 60
+done
+
+# 出力（Gitには含めない）
+data/live_today.json</code></pre>
+    </section>
+
+    <section id="server">
+      <h2>03. サーバーはどこに立ち、バックエンドは何か</h2>
+      <p>
+        WebサーバーはメインPCのWindows上ではなく、<strong>Windows内のWSL2 Linux</strong>で動きます。
+        現在は公開パスを限定したPythonサーバーをsystemdユーザーサービスとして起動し、
+        ループバックアドレスのTCP 8000番で配信しています。
+      </p>
+      <pre><code>systemctl --user status boatrace-public
+
+# origin（外部から直接到達できない）
+http://127.0.0.1:8000</code></pre>
+
+      <div class="layers">
+        <div class="layer"><b>Web配信層</b><span><code>tools/serve_public.py</code>。トップページとライブJSONだけを許可し、その他は404にする読み取り専用サーバー。</span></div>
+        <div class="layer"><b>データ整形層</b><span>Python exporter。SSH/rsync、artifact解析、返還を含む暫定精算、JSON生成を担当。</span></div>
+        <div class="layer"><b>データ生成層</b><span>サブPCのstack2tan。予測モデルと実運用ロジックは公開サイトから分離。</span></div>
+        <div class="layer"><b>表示層</b><span>ブラウザ内のJavaScript＋Canvas。JSONを読み、地図、推論、確率、収支を可視化。</span></div>
+      </div>
+
+      <div class="callout warn">
+        <strong>「APIバックエンド」と言い切らない：</strong> 現状、Webリクエストに応じて計算するFlask/FastAPI等はありません。
+        Python exporterが事前にJSONを作る「バッチ＋静的配信」です。小規模な読み取り専用ダッシュボードとして、
+        障害点と依存を減らすための意図的な構成です。
+      </div>
+    </section>
+
+    <section id="frontend">
+      <h2>04. フロントエンド技術と言語選定</h2>
+      <div class="callout risk">
+        <strong>現在はTypeScriptではありません。</strong> <code>index.html</code>内のVanilla JavaScript、HTML、CSS、Canvas APIで実装されています。
+        面接では「TypeScriptを使った」と誤って説明せず、なぜJavaScriptを選び、どこからTypeScriptへ移すかを話します。
+      </div>
+
+      <table>
+        <thead><tr><th>技術</th><th>用途</th><th>採用理由</th></tr></thead>
+        <tbody>
+          <tr><td>HTML / CSS</td><td>画面構造、レスポンシブ配置、管制室風UI</td><td>配布物を単純にし、静的配信だけで動作させる。</td></tr>
+          <tr><td>Vanilla JavaScript</td><td>ライブ取得、DOM更新、集計、インタラクション</td><td>依存・ビルド工程なしで、1ファイルを即座に試作・公開できる。</td></tr>
+          <tr><td>Canvas 2D</td><td>日本地図、流体表現、ビーコン、テレメトリ</td><td>大量の描画要素をDOM化せず、毎フレーム効率よく描画する。</td></tr>
+          <tr><td>Fetch API</td><td><code>live_today.json</code>を20秒ごとに取得</td><td>読み取り専用の小さなデータフローに、WebSocketを持ち込まない。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>なぜ最初からTypeScriptではないのか</h3>
+      <p>
+        初期目的はUIの仮説を高速に形にし、外部依存なしでどのブラウザでも開けることでした。
+        その段階では単一HTML＋JavaScriptが合理的です。一方、現在はライブデータの型や状態が増え、
+        <code>index.html</code>も大きくなっているため、保守フェーズではTypeScriptの利点が上回り始めています。
+      </p>
+      <div class="two">
+        <div class="card"><h4>今の強み</h4><p>ゼロビルド、配布が簡単、障害箇所が少ない、プロトタイプ速度が高い。</p></div>
+        <div class="card"><h4>次の改善</h4><p>Vite＋TypeScriptへ分割し、JSON schemaの型、描画コンポーネント、テストを導入する。</p></div>
+      </div>
+      <p class="muted">
+        面接での言い方：「TypeScriptを知らないから避けたのではなく、初期の配布性と検証速度を優先しました。
+        状態とデータ契約が増えた現在は、移行効果が明確になっています。」
+      </p>
+    </section>
+
+    <section id="wsl">
+      <h2>05. Windows・WSL2・Firewallの関係</h2>
+      <p>
+        WSL2はWindows上で動く軽量Linux仮想環境です。このPCではLinuxカーネル
+        <code>microsoft-standard-WSL2</code>とsystemdが有効です。アプリがLinux側で8000番をlistenしても、
+        LANから届くまでには複数の境界があります。
+      </p>
+      <div class="layers">
+        <div class="layer"><b>ブラウザ</b><span>サブPCまたは外部の閲覧者がURLへ接続。</span></div>
+        <div class="layer"><b>LAN / Router</b><span>家庭内ネットワーク。インターネット公開ではNATが受信を遮断。</span></div>
+        <div class="layer"><b>Windows Firewall</b><span>Windowsホストへの受信TCPを規則で許可・拒否。</span></div>
+        <div class="layer"><b>WSL2 Network</b><span>WindowsとLinuxの間を転送。NAT型・mirrored型等で到達経路が変わる。</span></div>
+        <div class="layer"><b>Linux process</b><span><code>127.0.0.1:8000</code>だけで待ち受ける公開専用Webサーバー。</span></div>
+      </div>
+
+      <p>
+        初期検証ではメインWSL2に <code>192.168.0.37</code> が見え、サーバーを <code>0.0.0.0:8000</code>で待ち受けても、
+        サブPCからの直接アクセスはタイムアウトしました。つまりLinuxプロセスの待受だけでは不十分で、
+        Windows FirewallまたはWSL転送境界で受信が止まっていたと判断できます。現在は受信ポートを開けず、
+        サブPCにはSSH逆トンネル、外部にはCloudflare Tunnelを使っています。
+      </p>
+      <div class="callout">
+        <strong>大事な理解：</strong> <code>localhost</code>、LAN公開、インターネット公開は別物です。
+        自分のPCで見えることは、別PCから到達できることを意味しません。
+      </div>
+    </section>
+
+    <section id="ssh">
+      <h2>06. サブPCから見せるSSH逆トンネル</h2>
+      <p>
+        Windows Firewallの受信設定を変更せずにサブPCから確認するため、メインPCからサブPCへSSH接続を開始し、
+        その接続の中に逆向きのHTTP経路を作りました。
+      </p>
+      <pre><code>ssh -fNT \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -R 8000:localhost:8000 sub</code></pre>
+      <table>
+        <thead><tr><th>指定</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><code>-R 8000:localhost:8000</code></td><td>サブPC側の8000番を、SSH越しにメインPC側のlocalhost:8000へ転送。</td></tr>
+          <tr><td><code>-N</code></td><td>リモートコマンドは実行せず、トンネルだけ作る。</td></tr>
+          <tr><td><code>-T</code></td><td>疑似ターミナルを割り当てない。</td></tr>
+          <tr><td><code>-f</code></td><td>認証後にバックグラウンドへ移動し、VS Codeのターミナル終了から切り離す。</td></tr>
+          <tr><td><code>ServerAlive*</code></td><td>切断を検知しやすくする。恒久的な自動再接続そのものではない。</td></tr>
+        </tbody>
+      </table>
+
+      <div class="diagram">
+        <div class="node"><span class="label">MAIN WSL2</span><b>localhost:8000</b><ul><li>Webサーバー</li><li>SSH接続を外向きに開始</li></ul></div>
+        <div class="arrow">⇄</div>
+        <div class="node"><span class="label">ENCRYPTED SSH</span><b>Reverse Forward</b><ul><li>HTTPをSSH内にカプセル化</li><li>Windows受信8000番を直接通らない</li></ul></div>
+        <div class="arrow">⇄</div>
+        <div class="node"><span class="label">SUB PC</span><b>localhost:8000</b><ul><li>ブラウザはローカルとして接続</li><li>実体はメインPCから配信</li></ul></div>
+      </div>
+      <p>
+        VS Code再起動で落ちたのは、最初のSSHプロセスがターミナルに紐づいていたためです。
+        <code>-f</code>でバックグラウンド化すればVS Code終了には耐えます。PC再起動・回線断からも自動復旧させるなら、
+        systemd user serviceまたはautosshで常駐化します。
+      </p>
+    </section>
+
+    <section id="cloudflare">
+      <h2>07. インターネット公開までのトンネル</h2>
+      <p>
+        LAN用SSHトンネルと外部公開用Cloudflare Tunnelは目的が異なります。
+        <code>cloudflared</code>がメインPCからCloudflareへ<strong>外向き</strong>の接続を張り、
+        公開URLへのHTTPSアクセスをその接続経由で <code>localhost:8000</code>へ届けます。
+      </p>
+      <div class="diagram">
+        <div class="node"><span class="label">PUBLIC USER</span><b>HTTPS URL</b><ul><li>ブラウザ</li><li>TLS暗号化</li><li>自宅IPを直接指定しない</li></ul></div>
+        <div class="arrow">→</div>
+        <div class="node"><span class="label">CLOUDFLARE EDGE</span><b>Public Gateway</b><ul><li>公開DNS/URL</li><li>HTTPS終端</li><li>トンネルへ中継</li></ul></div>
+        <div class="arrow">→</div>
+        <div class="node"><span class="label">MAIN WSL2</span><b>cloudflared → :8000</b><ul><li>外向き接続のみ</li><li>ルーター開放不要</li><li>Windows受信規則を迂回</li></ul></div>
+      </div>
+
+      <pre><code># Named TunnelはLinux system serviceとして常駐
+sudo systemctl status cloudflared --no-pager
+
+# 固定公開URL
+https://botrace.nemui3900.com</code></pre>
+      <table>
+        <thead><tr><th></th><th>Quick Tunnel（初期検証）</th><th>Named Tunnel（現在）</th></tr></thead>
+        <tbody>
+          <tr><td>URL</td><td>起動ごとに変わる <code>trycloudflare.com</code></td><td>独自ドメインで固定可能</td></tr>
+          <tr><td>準備</td><td>アカウントなしですぐ試せる</td><td>Cloudflareアカウント、ドメイン、認証が必要</td></tr>
+          <tr><td>用途</td><td>動作確認、短時間のデモ</td><td>履歴書・ポートフォリオから常設リンク</td></tr>
+          <tr><td>運用</td><td>プロセス終了でURL消滅</td><td>サービス化、自動再接続、アクセス制御が可能</td></tr>
+        </tbody>
+      </table>
+      <div class="callout good">
+        <strong>なぜポート開放しないのか：</strong> 自宅ルーターやWindowsへインターネットからの受信口を作らず、
+        公開入口をCloudflare側へ寄せられます。HTTPS証明書の管理も単純になり、デモ公開の安全性と運用性が上がります。
+      </div>
+    </section>
+
+    <section id="security">
+      <h2>08. 公開時に実施した防御と次の改善</h2>
+      <div class="callout good">
+        <strong>公開範囲の限定は実施済みです。</strong>
+        初期の<code>python -m http.server</code>では<code>.git</code>やtoolsまで取得できることを外部テストで発見しました。
+        現在はallowlist方式へ切り替え、<code>/</code>、<code>/index.html</code>、
+        <code>/data/live_today.json</code>以外を404にしています。
+      </div>
+
+      <ol>
+        <li><strong>実施済み：</strong> originを<code>127.0.0.1</code>だけにbindし、外部から直接アクセスさせない。</li>
+        <li><strong>実施済み：</strong> Named Tunnelと<code>nemui3900.com</code>を使い、固定URLとsystemd自動再起動を構成。</li>
+        <li><strong>実施済み：</strong> dotfileとツールを非公開化し、MIME、キャッシュ、基本セキュリティヘッダーを明示。</li>
+        <li><strong>秘密情報を分離：</strong> SSH鍵、生ログ、モデル、認証情報、送信payloadを公開ディレクトリへ置かない。</li>
+        <li><strong>JSONを最小化：</strong> ポートフォリオ表示に必要なデータだけをexportし、個人情報・内部パスを含めない。</li>
+        <li><strong>今後：</strong> 同期ループも永続サービス化し、停止時は古い値をLIVE表示しない監視を追加する。</li>
+      </ol>
+
+      <h3>現在の公開構成</h3>
+      <pre><code>sub PC (private artifacts)
+  └─ SSH/rsync pull
+main WSL2
+  ├─ exporter loop           ──&gt; data/live_today.json
+  ├─ boatrace-public.service ──&gt; 127.0.0.1:8000 (3 paths only)
+  └─ cloudflared.service     ──&gt; Named Tunnel
+Cloudflare
+  └─ https://botrace.nemui3900.com</code></pre>
+    </section>
+
+    <section id="interview">
+      <h2>09. 面接で聞かれそうな質問</h2>
+      <div class="two">
+        <div class="qa"><b>Q. なぜ2台構成ですか？</b><p>推論・投票系と表示系の負荷と障害範囲を分離するためです。表示側はサブPCから読み取るだけにし、公開サイトから実運用系への書き込み経路を持たせていません。</p></div>
+        <div class="qa"><b>Q. なぜDBやAPIを使わないのですか？</b><p>更新頻度が分単位で、クライアントは読み取り専用だからです。単一JSONのスナップショットで要件を満たし、APIサーバーやDBの運用コストを避けました。</p></div>
+        <div class="qa"><b>Q. SSHトンネルとは？</b><p>SSHの暗号化接続内で別のTCP通信を転送する仕組みです。今回は逆トンネルにより、サブPCのlocalhostをメインPCのWebサーバーへ接続しました。</p></div>
+        <div class="qa"><b>Q. Cloudflare Tunnelの利点は？</b><p>自宅側から外向き接続を張るため、ルーターのポート開放なしでHTTPS公開できます。公開入口と証明書管理をCloudflare側へ寄せられます。</p></div>
+        <div class="qa"><b>Q. なぜWebSocketではない？</b><p>元データの生成が60秒周期なので20秒ポーリングで十分です。リアルタイム性の必要以上に双方向常時接続を導入せず、再接続や状態管理を単純にしました。</p></div>
+        <div class="qa"><b>Q. TypeScriptを使っていますか？</b><p>現状はVanilla JavaScriptです。初期のゼロビルドと試作速度を優先しました。データ型と画面状態が増えたため、次の保守段階ではTypeScript＋schema validationへの移行価値があります。</p></div>
+        <div class="qa"><b>Q. セキュリティは？</b><p>サブPCへの同期は公開鍵SSHのpullのみ。外部公開は受信ポートを開けないNamed Tunnel方式です。originはloopback限定で、allowlistにないdotfileやツールは404になります。</p></div>
+        <div class="qa"><b>Q. 一番の学びは？</b><p>アプリがlocalhostで動くことと、別端末・外部から安全に到達できることは別問題です。OS、仮想化、Firewall、NAT、トンネルを層として切り分けて検証しました。</p></div>
+      </div>
+
+      <h3>60秒版の説明例</h3>
+      <div class="callout">
+        「このサイトは、サブPCで実運用している3連単AIの状態を見せるポートフォリオです。
+        推論成果物をメインPCのWSL2からSSHとrsyncで読み取り専用同期し、Pythonで公開用JSONへ整形しています。
+        フロントはVanilla JavaScriptとCanvasで、20秒ごとにJSONを取得して可視化します。
+        LAN確認ではSSH逆トンネル、外部公開ではCloudflare Tunnelを使いました。
+        そのためWindows Firewallや自宅ルーターに受信ポートを開けずにHTTPS公開できます。
+        originはloopbackだけで待ち受け、公開パスもトップページとライブJSONへ限定しています。」
+      </div>
+    </section>
+
+    <section id="commands">
+      <h2>10. 運用コマンド早見表</h2>
+      <h3>ローカルWebサーバー</h3>
+      <pre><code>systemctl --user status boatrace-public --no-pager
+systemctl --user restart boatrace-public</code></pre>
+
+      <h3>ライブ同期</h3>
+      <pre><code>cd /home/nemui/boatrace-atlas
+nohup bash tools/live_sync_loop.sh \
+  &gt;/tmp/botrace-live-sync.log 2&gt;&amp;1 &amp;</code></pre>
+
+      <h3>サブPCから閲覧する逆トンネル</h3>
+      <pre><code>ssh -fNT \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -R 8000:localhost:8000 sub
+
+# サブPCのブラウザ
+http://localhost:8000</code></pre>
+
+      <h3>Named Tunnel</h3>
+      <pre><code>sudo systemctl is-active cloudflared
+sudo systemctl restart cloudflared
+
+# トークンを表示しない確認方法を使う
+https://botrace.nemui3900.com</code></pre>
+
+      <h3>切り分け</h3>
+      <pre><code># 8000番で待ち受けているか
+ss -tlnp | grep :8000
+
+# ローカル配信
+curl -I http://127.0.0.1:8000/
+
+# サービス
+systemctl --user is-active boatrace-public
+sudo systemctl is-active cloudflared
+
+# データ鮮度
+stat data/live_today.json
+
+# サブPCへのSSH
+ssh sub 'hostname; date'</code></pre>
+    </section>
+  </main>
+
+  <footer>
+    <p>BOTRACE — TRIFECTA ENGINE / Network &amp; Deployment Architecture</p>
+    <p>この文書は、2026-07-13時点で稼働するNamed Tunnel・固定ドメイン・allowlist originの現行構成を説明しています。</p>
+  </footer>
+</body>
+</html>

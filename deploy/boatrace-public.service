@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/nemui/boatrace-atlas
-ExecStart=/usr/bin/python3 /home/nemui/boatrace-atlas/tools/serve_public.py
+WorkingDirectory=%h/boatrace-atlas
+ExecStart=/usr/bin/python3 %h/boatrace-atlas/tools/serve_public.py
 Restart=always
 RestartSec=2
 

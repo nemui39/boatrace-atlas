@@ -1,47 +1,186 @@
 # BOTRACE — TRIFECTA ENGINE
 
-遊べるポートフォリオサイト(開発中)。
+実運用中のボートレース3連単AIを、データ収集から推論、意思決定、結果・収支までリアルタイムに可視化するポートフォリオです。
 
-夜の日本地図に全国24のボートレース場をビーコンとして配置し、
-場をクリックすると入場して舟券(仮想ポイント)が買える。
-サイト自体が「常に何か作っている」ことの証明になることを目指す。
+**Live:** [https://botrace.nemui3900.com](https://botrace.nemui3900.com)
 
-![concept](https://img.shields.io/badge/status-concept--mock-blue)
+> 静的な制作実績一覧ではなく、「現在動いているシステムそのもの」を見せるために作りました。
 
-## いま動くもの
+## What this demonstrates
 
-- **マップハブ**: ドットマトリクスの日本列島(実測海岸線)+ カーソルで水を掻くと墨が滲むリアルタイム流体シミュレーション(Stam法 stable fluids)
-- **エンジンビュー**: `E` キーで流体ソルバの生の圧力場(ヒートマップ)・速度場(ベクトル)・衝突セルを可視化。右下に fps / シミュレーション時間 / 染料量の常時テレメトリ
-- **AI予想ビジュアライザ**: 場内で6艇×5特徴量(勝率/ST/級別/コース/機力)の線形モデル+softmaxをブラウザ内で実行。特徴量→スコア→勝率→EVの計算過程、AI勝率と市場織込み(オッズ逆算)の乖離を可視化(※重みはデモ用。本番モデルは非公開)
-- **24場ビーコン**: 本日開催场はアンバーで強く明滅、ホバーで水面特性カード
-- **入場**: クリックでカメラがズームイン → 場内画面へ
-- **場内**: 出走表 → 単勝購入 → レースアニメーション → 払戻。
-  各場のイン信頼度(大村75% / 戸田25% など)がレース結果の分布に反映される
-- **ポイント財布**: localStorage 永続化。破産すると救済ボーナス
+- 複数PCに分散した実運用データの安全な収集と公開用変換
+- 時系列データを扱う機械学習パイプラインの運用可視化
+- 3連単120通りの確率、期待値、買い目、結果、収支の表現設計
+- WSL2、SSH、rsync、systemd、Cloudflare Tunnelを組み合わせた自宅環境からのHTTPS公開
+- Canvasによるリアルタイム描画と、ライブ更新中も動画を止めないフロントエンド最適化
+- 公開範囲を最小化したread-onlyアーキテクチャ
 
-## 動かし方
+## Highlights
 
-ブラウザで `index.html` を開くだけ。依存ゼロ(Vanilla JS + Canvas 単一ファイル)。
+### Live operations monitor
 
-## 技術メモ
+当日の開催スケジュールを読み込み、締切までの残り時間、推論中のレース、BET／見送り、確定結果、エンジン別・合算収支を表示します。ブラウザは公開用JSONを20秒ごとに取得し、元データは60秒周期で同期されます。
 
-- 海岸線は Natural Earth 50m (public domain) を Douglas–Peucker で 13島・502点に簡略化して埋め込み
-  (再生成は `tools/make_coastline.py`)
-- 海は value-noise 4オクターブの fBm フローフィールド。流線パーティクル+残像フェード、
-  陸ポリゴンのマスクで海岸線をくり抜き
-- ドット描画はスプライト drawImage 方式(数千点で 60fps 維持)
-- レースは各場の「イン信頼度」で1コースの強さを歪めた重み付きシミュレーション。
-  オッズは勝率から控除率25%で逆算(実際の公営競技と同じ構造)
+### Explainable inference view
 
-## ロードマップ
+艇ごとのTrueSkill、強度スコア、気象補正、3連単確率、EV分布など、推論artifactに記録された実数値を表示します。`p_final` は1着→2着→3着の艇色を使った3分割バーで、各帯幅は艇ごとの強度比を表します。
 
-- [ ] 場内画面の作り込み(水面演出・レース切替・3連単)
-- [ ] 実レースのリプレイデータ対応(過去の出走表・確定オッズ・結果で遊ぶ)
-- [ ] 職務経歴・ケーススタディへの導線(VIPルーム / 関係者通用口)
-- [ ] スロットコーナー(棚上げ中)
-- [ ] 独自ドメインへのデプロイ
+### Interactive map and telemetry
 
-## データについて
+Natural Earth由来の海岸線から作った日本地図に24場を配置。Canvas上でstable-fluids系の流体表現、ビーコン、圧力場・速度場のENGINE VIEW、fpsテレメトリを描画します。
 
-- 海岸線: [Natural Earth](https://www.naturalearthdata.com/) (public domain)
-- 選手名・レースはすべて架空。ポイントに金銭価値はありません
+### Real pipeline, separated responsibilities
+
+AI推論・投票系と公開サイトは別PC・別プロセスです。公開側はSSHでartifactをpullするだけで、実運用側への書き込み経路を持ちません。観測専用エンジンの疑似買い目も、実弾の賭金・収支・成績台帳には混ぜません。
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph SUB[Sub PC — private runtime]
+        ML[3連単AI推論]
+        ART[Live artifacts]
+        ML --> ART
+    end
+
+    subgraph MAIN[Main PC — Windows / WSL2]
+        SYNC[Python exporter<br>SSH + rsync]
+        JSON[live_today.json]
+        ORIGIN[Allowlisted origin<br>127.0.0.1:8000]
+        UI[Vanilla JS + Canvas]
+        SYNC --> JSON --> ORIGIN --> UI
+    end
+
+    subgraph EDGE[Cloudflare]
+        TUNNEL[Named Tunnel]
+        DNS[botrace.nemui3900.com]
+        TUNNEL --> DNS
+    end
+
+    ART -->|read-only pull| SYNC
+    ORIGIN -->|outbound-only tunnel| TUNNEL
+    DNS --> BROWSER[Public browser]
+```
+
+データフロー：
+
+```text
+sub:/home/sub/stack2tan/data/live/<YYYYMMDD>
+  → SSH / rsync
+  → /tmp/botrace_live_cache/<YYYYMMDD>
+  → tools/export_live_today.py
+  → data/live_today.json
+  → tools/serve_public.py
+  → Cloudflare Named Tunnel
+  → https://botrace.nemui3900.com
+```
+
+ネットワーク構成、WSL2とWindows Firewall、SSH逆トンネル、Named Tunnelまでの説明は、[公開基盤 技術レポート](docs/network-architecture.html)にまとめています。
+
+## Technology choices
+
+| Layer | Technology | Why |
+|---|---|---|
+| Frontend | HTML / CSS / Vanilla JavaScript | ゼロビルドで配布でき、可視化の仮説検証を高速に回せる |
+| Graphics | Canvas 2D | 数千要素と毎フレーム描画をDOMから分離できる |
+| Live transport | Fetch polling | 元データが分単位更新のため、WebSocketを持たず状態管理を単純化 |
+| Exporter | Python 3 | JSON artifactの解析、暫定精算、公開スキーマへの変換 |
+| Machine sync | SSH / rsync | 暗号化されたread-only pullと差分転送 |
+| Process management | systemd | originとcloudflaredの常駐・自動再起動 |
+| Public ingress | Cloudflare Named Tunnel | 受信ポートを開けず、固定ドメインでHTTPS公開 |
+
+### Why JavaScript rather than TypeScript?
+
+初期段階では、単一HTMLをブラウザで即座に試せることと、外部依存なしで配布できることを優先しました。現在はライブデータの型と画面状態が増えているため、次の保守フェーズではVite＋TypeScript、JSON Schema、コンポーネント分割への移行が合理的だと考えています。
+
+## Public boundary
+
+外部HTTP originはloopbackだけで待ち受け、次の3パスだけを返します。
+
+```text
+/
+/index.html
+/data/live_today.json
+```
+
+`/.git/*`、`/tools/*`、README、モデル、SSH鍵、生ログ、投票認証情報などは配信しません。公開用JSONも表示に必要な項目だけへ変換しています。
+
+## Repository layout
+
+```text
+.
+├── index.html                       # Single-page UI
+├── data/
+│   └── live_today.json              # Generated, gitignored
+├── tools/
+│   ├── export_live_today.py         # Private artifacts → public JSON
+│   ├── live_sync_loop.sh            # 60-second synchronization loop
+│   ├── serve_public.py              # Allowlisted read-only HTTP origin
+│   ├── export_pipeline_trace.py     # Historical showcase trace exporter
+│   └── make_coastline.py            # Natural Earth coastline generator
+├── deploy/
+│   └── boatrace-public.service      # systemd user unit
+└── docs/
+    └── network-architecture.html    # Interview-ready infrastructure report
+```
+
+## Run locally
+
+Python 3以外の実行時依存はありません。
+
+```bash
+git clone https://github.com/nemui39/boatrace-atlas.git
+cd boatrace-atlas
+python3 tools/serve_public.py
+```
+
+ブラウザで [http://127.0.0.1:8000](http://127.0.0.1:8000) を開きます。
+
+`data/live_today.json` がない環境ではライブフィードは表示されませんが、実ログから埋め込んだSHOWCASEと地図・Canvas表現は確認できます。ライブ同期には、このプロジェクト固有のSSHホストとprivate runtimeが別途必要です。
+
+### Install the origin as a user service
+
+```bash
+systemctl --user link "$PWD/deploy/boatrace-public.service"
+systemctl --user daemon-reload
+systemctl --user enable --now boatrace-public.service
+systemctl --user status boatrace-public.service --no-pager
+```
+
+## Validation
+
+このリポジトリでは、変更時に最低限以下を確認します。
+
+```bash
+# Inline JavaScript syntax
+node -e 'const s=require("fs").readFileSync("index.html","utf8"); new Function(s.match(/<script>([\s\S]*)<\/script>/)[1])'
+
+# Python and shell syntax
+python3 -m py_compile tools/*.py
+bash -n tools/live_sync_loop.sh
+
+# Origin allowlist
+curl -I http://127.0.0.1:8000/
+curl -I http://127.0.0.1:8000/data/live_today.json
+curl -I http://127.0.0.1:8000/.git/config  # must be 404
+```
+
+## Scope and disclosure
+
+- 現行ライブ運用の最終券種は3連単です。
+- このリポジトリは可視化・公開adapterです。学習コード、モデル重み、特徴量定義、投票認証情報は含みません。
+- 表示される確率・期待値・収支は、投資・賭博の利益を保証するものではありません。
+- 公開サイトは自宅PC上のprivate runtimeに依存するため、メンテナンス中はライブデータが停止する場合があります。
+
+## Status
+
+- [x] 実データ同期と当日ライブ表示
+- [x] 3連単AIの推論・EV・買い目・収支可視化
+- [x] 観測専用エンジンと実弾成績の分離
+- [x] SSH逆トンネルによるサブPC確認
+- [x] Cloudflare Named Tunnel＋独自ドメイン
+- [x] allowlist originとsystemd常駐
+- [ ] 経歴・ケーススタディ・連絡先への導線
+- [ ] OGP画像とSNS共有メタデータ
+- [ ] TypeScript移行と自動テスト
+- [ ] ライブ同期ループの永続サービス化と鮮度監視

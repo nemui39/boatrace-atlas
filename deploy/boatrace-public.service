@@ -1,0 +1,13 @@
+[Unit]
+Description=BOTRACE allowlisted public HTTP origin
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/nemui/boatrace-atlas
+ExecStart=/usr/bin/python3 /home/nemui/boatrace-atlas/tools/serve_public.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

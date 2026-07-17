@@ -1864,7 +1864,7 @@ function renderLiveDetail(wid){
         '<div class="dl">'+(GATE_JP[r.verdict]||r.verdict)+"</div>";
     }
     if(r.pnl!=null)b+='<div class="verdict '+(r.pnl>0?"g":"r")+'" style="margin-top:8px;font-size:13px">'+
-      (r.win?"結果 "+fmtK(String(r.win).replace(/-/g,""))+" ── ":"")+(r.prov?"≈":"")+(r.pnl>=0?"+":"")+r.pnl+"円</div>";
+      (r.win?"結果 "+(/^[1-6]{3}$/.test(String(r.win).replace(/-/g,""))?fmtK(String(r.win).replace(/-/g,"")):String(r.win))+" ── ":"")+(r.prov?"≈":"")+(r.pnl>=0?"+":"")+r.pnl+"円</div>";
     out+=stg('<span style="color:'+(ENG_COLOR[r.eng]||"var(--cyan)")+'">'+(ENG_SHORT[r.eng]||r.eng)+"</span>",head,b);
   });
   box.innerHTML=out;
@@ -2021,7 +2021,7 @@ function loadLive(){
         '<span class="lf-v">'+(r.venue||"?")+" "+(r.rno||"")+'R</span>'+
         '<span class="lf-e" style="color:'+(ENG_COLOR[r.eng]||"var(--mut2)")+'">'+(ENG_TAG[r.eng]||r.eng.slice(0,6))+'</span>'+
         (r.bets.length||r.win||pnl?
-          '<span class="lf-verdict" title="'+vfull+'">'+v+'</span><span class="lf-win">'+(r.win?("結果 "+kumiChips(String(r.win).replace(/-/g,""),"f")):"")+'</span><span class="lf-pnl">'+pnl+"</span>":
+          '<span class="lf-verdict" title="'+vfull+'">'+v+'</span><span class="lf-win">'+(r.win?(/^[1-6]{3}$/.test(String(r.win).replace(/-/g,""))?("結果 "+kumiChips(String(r.win).replace(/-/g,""),"f")):String(r.win)):"")+'</span><span class="lf-pnl">'+pnl+"</span>":
           '<span class="lf-verdict" style="grid-column:4/7" title="'+vfull+'">'+v+"</span>")+"</div>";
     }).join("");
     if(lastLiveDate&&lastLiveDate!==d.date){

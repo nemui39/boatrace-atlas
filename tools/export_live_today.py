@@ -236,6 +236,14 @@ def main():
         except (KeyError, IndexError, TypeError):
             continue
         wk = win.replace("-", "")
+        if not wk.isdigit():
+            # レース中止/不成立: 全買い目が元返し(収支0)
+            r["win"] = win
+            r["pnl"] = 0
+            r["prov"] = True
+            r["cancel"] = True
+            r["ret"] = sum(b["stake"] for b in r["bets"])
+            continue
         # フライング等の返還艇: その艇を含む買い目は掛金払い戻し(収支0)
         ret = {str(x) for x in (rr["maindata"].get("returnlist") or [])}
         stake = payout = refunded = 0

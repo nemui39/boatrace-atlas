@@ -19,7 +19,9 @@ CACHE = Path("/tmp/botrace_live_cache")
 STACK = Path("/home/nemui/stack2tan")
 # 実弾micro_liveから外れても、診断表示だけ継続するshadowエンジン。
 # bets_finalは公開側で無効化し、賭金・収支へは混ぜない。
-DISPLAY_ONLY_ENGINES = {"t3w6_calB"}
+DISPLAY_ONLY_ENGINES = set()
+# 実弾昇格済みだがpreflight/submissionsを出す前でも拾いたいエンジン
+FORCE_LIVE_ENGINES = {"t3w6_calB"}
 
 
 def fnum(x, default=None):
@@ -64,9 +66,20 @@ def detect_engines(hd):
             live.add(name[:-len("_preflight.json")])
         elif name.endswith("_bets"):
             bets.add(name[:-len("_bets")])
-    active = live or bets
+    active = (live | (FORCE_LIVE_ENGINES & bets)) or bets
     display_only = (DISPLAY_ONLY_ENGINES & bets) - active
     return sorted(active | display_only), display_only
+
+
+def _now_hm_minus(dl):
+    """締切"HH:MM"から現在までの経過分(締切前なら負)。"""
+    try:
+        now = datetime.datetime.now()
+        h, m = map(int, str(dl).split(":"))
+        return (now - now.replace(hour=h, minute=m, second=0,
+                                  microsecond=0)).total_seconds() / 60
+    except (ValueError, AttributeError):
+        return -9999
 
 
 def rsync(src, dst):
@@ -161,6 +174,14 @@ def main():
             blk = blocked.get((eng, rid))
             if blk and amts is None:
                 bets = []  # ガード遮断: 意図買い目はあるが未送信=賭金0
+            elif bets and amts is None:
+                # 実弾エンジンなのに締切+2分を過ぎてもreceiptが無い=送信未確認。
+                # 実額が証明できないので成績へ入れない(送信経路の欠陥検知を兼ねる)
+                sc0 = sched.get(rid, {})
+                dl0 = sc0.get("deadline")
+                if dl0 and _now_hm_minus(dl0) >= 2:
+                    bets = []
+                    blk = "no_receipt"
             if is_observer:
                 bets = []  # shadowの疑似買い目を実弾成績へ混ぜない
             # debug全フィールドの自動吸い上げ (スカラー+1段ネスト辞書)

@@ -113,6 +113,7 @@ def main():
 
     # 実送信レシート(bet-serverが受理した額)が賭金の正
     receipts = {}
+    blocked = {}
     for eng in engines:
         for f in (day / "micro_live" / f"{eng}_submissions").glob("*_live.json"):
             try:
@@ -122,6 +123,8 @@ def main():
             rid = rc.get("source_race_id") or f.stem.replace("_live", "")
             res = rc.get("result") or {}
             if rc.get("status") != "submitted_success" and res.get("status") != "success":
+                # 送信前ガード遮断等: 実弾は出ていないので賭金0として記録
+                blocked[(eng, rid)] = rc.get("status") or res.get("status") or "blocked"
                 continue
             receipts[(eng, rid)] = {
                 b["combo"].replace("-", ""): b["amount"]
@@ -155,6 +158,9 @@ def main():
                          "ev": round(b.get("ev", 0), 2), "stake": b.get("stake"),
                          "pm": round(b["p_model"], 5) if b.get("p_model") else None}
                         for b in bf]
+            blk = blocked.get((eng, rid))
+            if blk and amts is None:
+                bets = []  # ガード遮断: 意図買い目はあるが未送信=賭金0
             if is_observer:
                 bets = []  # shadowの疑似買い目を実弾成績へ混ぜない
             # debug全フィールドの自動吸い上げ (スカラー+1段ネスト辞書)
@@ -198,7 +204,8 @@ def main():
                 "venue": sc.get("venue_name"), "rno": sc.get("rno"),
                 "deadline": sc.get("deadline"),
                 "verdict": ("observe" if is_observer else
-                            ("bet" if bets else dbg.get("max_ev_gate", "no_ev"))),
+                            ("blocked:" + blk if (blk and not bets) else
+                             ("bet" if bets else dbg.get("max_ev_gate", "no_ev")))),
                 "max_ev": dbg.get("max_ev"), "max_ev_kumi": dbg.get("max_ev_kumi"),
                 "bets": bets,
                 "win": row.get("winno_3t"), "pnl": row.get("pnl_yen"),

@@ -1786,10 +1786,12 @@ function renderLiveDetail(wid){
   lastDK=dk;
   if(!rs.length){box.innerHTML=sc?nextRaceHTML(sc):"";return;}
   var head=sc?(sc.v+" "+sc.rno+"R ── 締切 "+sc.dl):id;
-  var blr="";
+  var blr="",kcnt={};
+  rs.forEach(function(r0){(r0.bets||[]).forEach(function(bt){kcnt[bt.k]=(kcnt[bt.k]||0)+1;});});
   rs.forEach(function(r0){
     (r0.bets||[]).forEach(function(bt){
-      blr+="<tr><td>"+kumiChips(bt.k,"f")+'</td><td><span style="color:'+(ENG_COLOR[r0.eng]||"#5cd6ff")+';font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.12em">'+(ENG_TAG[r0.eng]||r0.eng)+'</span></td><td class="num r">'+(bt.o!=null?bt.o+"倍":"-")+'</td><td class="num r">¥'+bt.stake+"</td></tr>";
+      var dup=kcnt[bt.k]>1?'<span title="複数系統が同一券を購入(重複除去対象外)" style="color:#e05252;font-size:9px;letter-spacing:.1em;margin-left:6px">重複</span>':"";
+      blr+="<tr><td>"+kumiChips(bt.k,"f")+'</td><td><span style="color:'+(ENG_COLOR[r0.eng]||"#5cd6ff")+';font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.12em">'+(ENG_TAG[r0.eng]||r0.eng)+'</span>'+dup+'</td><td class="num r">'+(bt.o!=null?bt.o+"倍":"-")+'</td><td class="num r">¥'+bt.stake+"</td></tr>";
     });
   });
   var out=(blr?('<div style="margin-top:18px">'+stg("BETS","買い目一覧",

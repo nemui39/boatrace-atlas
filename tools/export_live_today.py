@@ -22,6 +22,15 @@ STACK = Path("/home/nemui/stack2tan")
 DISPLAY_ONLY_ENGINES = set()
 # 実弾昇格済みだがpreflight/submissionsを出す前でも拾いたいエンジン
 FORCE_LIVE_ENGINES = {"t3w6_calB"}
+# 推論artifactのdir名が "<eng>_bets" でないエンジン
+BETS_DIR_ALIAS = {"market_rank_kl_delta015": "market_rank_kl_delta015_forward_shadow_bets"}
+# 無送信shadow形式のartifactを実弾ディスパッチする系(KL): 上位キー由来の指標
+KL_META_KEYS = ("roi_role", "maturity_decision_use",
+                "decision", "forward_eligibility", "projection", "runtime_snapshot")
+
+
+def bets_dir(eng):
+    return BETS_DIR_ALIAS.get(eng, f"{eng}_bets")
 
 
 def fnum(x, default=None):
@@ -55,6 +64,7 @@ def detect_engines(hd):
     r = subprocess.run(
         ["ssh", SUB, f"ls -d {REMOTE}/{hd}/micro_live/*_submissions "
                      f"{REMOTE}/{hd}/micro_live/*_preflight.json "
+                     f"{REMOTE}/{hd}/micro_live/*_dispatch "
                      f"{REMOTE}/{hd}/*_bets 2>/dev/null"],
         capture_output=True, text=True)
     live, bets = set(), set()
@@ -64,6 +74,8 @@ def detect_engines(hd):
             live.add(name[:-len("_submissions")])
         elif name.endswith("_preflight.json"):
             live.add(name[:-len("_preflight.json")])
+        elif name.endswith("_dispatch"):
+            live.add(name[:-len("_dispatch")])
         elif name.endswith("_bets"):
             bets.add(name[:-len("_bets")])
     active = (live | (FORCE_LIVE_ENGINES & bets)) or bets
@@ -100,7 +112,7 @@ def main():
           f"venue_*_oddstf.json", day / "oddstf")
     rsync(f"{SUB}:{REMOTE}/{hd}/micro_live/", day / "micro_live")
     for eng in engines:
-        rsync(f"{SUB}:{REMOTE}/{hd}/{eng}_bets/", day / f"{eng}_bets")
+        rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
 
     sched = {}
     sp = day / "schedule.json"
@@ -142,11 +154,27 @@ def main():
             receipts[(eng, rid)] = {
                 b["combo"].replace("-", ""): b["amount"]
                 for b in (rc.get("payload") or {}).get("bets", [])}
+        # KL型: ディスパッチ受領票(重複除去/締切/sender遮断)
+        for f in (day / "micro_live" / f"{eng}_dispatch").glob("*.json"):
+            try:
+                dr = json.load(open(f))
+            except json.JSONDecodeError:
+                continue
+            rid = dr.get("race_id") or f.stem
+            st, reason = dr.get("status"), str(dr.get("reason") or "")
+            if st in ("submitted", "admitted", "already_attempted"):
+                continue
+            if "overlap" in reason:
+                blocked.setdefault((eng, rid), "kl_overlap")
+            elif "deadline" in reason:
+                blocked.setdefault((eng, rid), "kl_deadline")
+            else:
+                blocked.setdefault((eng, rid), "kl_" + str(st))
 
     races = []
     for eng in engines:
         is_observer = eng in display_only
-        for f in sorted((day / f"{eng}_bets").glob("*.json")):
+        for f in sorted((day / bets_dir(eng)).glob("*.json")):
             try:
                 d = json.load(open(f))
             except json.JSONDecodeError:
@@ -154,7 +182,21 @@ def main():
             rid = d.get("race_id", f.stem)
             if not rid.startswith(hd):
                 continue  # 当日以外(朝の試行ログ等)を除外
-            dbg = d.get("debug", {})
+            dbg = d.get("debug") or {}
+            if not dbg and isinstance(d.get("ev_120"), list) and d.get("kumi_order_120"):
+                # KL型: debug無し。120配列から同等指標を合成
+                ev, ko0, od = d["ev_120"], d["kumi_order_120"], d.get("odds_120") or []
+                i0 = max(range(len(ev)), key=lambda i: ev[i])
+                sv = sorted(ev)
+                dbg = {"max_ev": round(ev[i0], 4), "max_ev_kumi": str(ko0[i0]).replace("-", ""),
+                       "max_ev_odds": od[i0] if i0 < len(od) else None,
+                       "ev_median_120": round(sv[len(sv) // 2], 4),
+                       "ev_p90_120": round(sv[int(len(sv) * 0.9)], 4),
+                       "n_odds_in_band": None,
+                       "max_ev_gate": "kl_no_ticket"}
+                for k in KL_META_KEYS:
+                    if d.get(k) is not None:
+                        dbg[k] = d[k]
             row = settle.get((eng, rid), {})
             amts = receipts.get((eng, rid))
             bf = d.get("bets_final") or []
@@ -168,10 +210,14 @@ def main():
                         bets.append({"k": k, "o": None, "ev": None, "stake": a})
             else:
                 bets = [{"k": b["kumi"], "o": b.get("odds"),
-                         "ev": round(b.get("ev", 0), 2), "stake": b.get("stake"),
+                         "ev": round(b.get("ev", 0), 2),
+                         # 紙上stake(KLのstake=4800等)を実弾表示に使わない
+                         "stake": b.get("stake_flat100") or b.get("stake"),
                          "pm": round(b["p_model"], 5) if b.get("p_model") else None}
                         for b in bf]
             blk = blocked.get((eng, rid))
+            if blk and not bf:
+                blk = None  # 券なしレースの受領票は遮断でなく単なる見送り
             if blk and amts is None:
                 bets = []  # ガード遮断: 意図買い目はあるが未送信=賭金0
             elif bets and amts is None:
@@ -315,7 +361,7 @@ def main():
             ms.stat().st_mtime).strftime("%H:%M")}
     newest = 0.0
     for eng in engines:
-        for f in (day / f"{eng}_bets").glob("*.json"):
+        for f in (day / bets_dir(eng)).glob("*.json"):
             newest = max(newest, f.stat().st_mtime)
     if newest:
         sysd["infer_age_min"] = round((time.time() - newest) / 60, 1)

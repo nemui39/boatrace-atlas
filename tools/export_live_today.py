@@ -23,10 +23,31 @@ DISPLAY_ONLY_ENGINES = set()
 # 実弾昇格済みだがpreflight/submissionsを出す前でも拾いたいエンジン
 FORCE_LIVE_ENGINES = {"t3w6_calB"}
 # 推論artifactのdir名が "<eng>_bets" でないエンジン
-BETS_DIR_ALIAS = {"market_rank_kl_delta015": "market_rank_kl_delta015_forward_shadow_bets"}
+BETS_DIR_ALIAS = {"market_rank_kl_delta015": "market_rank_kl_delta015_forward_shadow_bets",
+                  # 正式チャンピオン(family_ens_w070 δ0.05): source artifact→dispatcher実弾化
+                  "family_ens_w070_delta005": "formal_champion_forward_source_v1/artifacts"}
 # 無送信shadow形式のartifactを実弾ディスパッチする系(KL): 上位キー由来の指標
-KL_META_KEYS = ("roi_role", "maturity_decision_use",
+KL_META_KEYS = ("roi_role", "maturity_decision_use", "band_counts",
                 "decision", "forward_eligibility", "projection", "runtime_snapshot")
+
+
+def adapt_formal_champion(d):
+    """正式チャンピオンのsource artifactをKL型(120配列+bets_final)へ正規化する。
+    decision.candidate_bets(死亡済み残差候補)は送信禁止なので一切使わない。"""
+    dec = d.get("decision")
+    if not isinstance(dec, dict) or "formal_bets" not in dec or d.get("ev_120"):
+        return d
+    inp, prob = d.get("input") or {}, d.get("probability") or {}
+    ko, od, pf = inp.get("kumi_order_120"), inp.get("odds_120"), prob.get("p0_decision")
+    if not (ko and od and pf) or len(pf) != len(od):
+        return d
+    d["kumi_order_120"], d["odds_120"], d["p_final_120"] = ko, od, pf
+    d["p_market_120"] = prob.get("market120")
+    d["ev_120"] = [p * o for p, o in zip(pf, od)]
+    d["bets_final"] = dec.get("formal_bets") or []
+    d["band_counts"] = dec.get("band_counts")
+    d["_gate_no_ticket"] = "fc_no_ticket"
+    return d
 
 
 def bets_dir(eng):
@@ -112,6 +133,7 @@ def main():
           f"venue_*_oddstf.json", day / "oddstf")
     rsync(f"{SUB}:{REMOTE}/{hd}/micro_live/", day / "micro_live")
     for eng in engines:
+        (day / bets_dir(eng)).mkdir(parents=True, exist_ok=True)
         rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
 
     sched = {}
@@ -164,12 +186,13 @@ def main():
             st, reason = dr.get("status"), str(dr.get("reason") or "")
             if st in ("submitted", "admitted", "already_attempted"):
                 continue
-            if "overlap" in reason:
-                blocked.setdefault((eng, rid), "kl_overlap")
-            elif "deadline" in reason:
-                blocked.setdefault((eng, rid), "kl_deadline")
+            pre = "fc_" if eng.startswith("family_ens") else "kl_"
+            if "overlap" in reason or "dedup" in reason:
+                blocked.setdefault((eng, rid), pre + "overlap")
+            elif "deadline" in reason or "remaining" in reason:
+                blocked.setdefault((eng, rid), pre + "deadline")
             else:
-                blocked.setdefault((eng, rid), "kl_" + str(st))
+                blocked.setdefault((eng, rid), pre + str(st))
 
     races = []
     for eng in engines:
@@ -180,8 +203,9 @@ def main():
             except json.JSONDecodeError:
                 continue
             rid = d.get("race_id", f.stem)
-            if not rid.startswith(hd):
-                continue  # 当日以外(朝の試行ログ等)を除外
+            if not rid or not rid.startswith(hd):
+                continue  # 当日以外(朝の試行ログ等)/preflight等の非レースJSONを除外
+            d = adapt_formal_champion(d)
             dbg = d.get("debug") or {}
             if not dbg and isinstance(d.get("ev_120"), list) and d.get("kumi_order_120"):
                 # KL型: debug無し。120配列から同等指標を合成
@@ -193,7 +217,7 @@ def main():
                        "ev_median_120": round(sv[len(sv) // 2], 4),
                        "ev_p90_120": round(sv[int(len(sv) * 0.9)], 4),
                        "n_odds_in_band": None,
-                       "max_ev_gate": "kl_no_ticket"}
+                       "max_ev_gate": d.get("_gate_no_ticket", "kl_no_ticket")}
                 for k in KL_META_KEYS:
                     if d.get(k) is not None:
                         dbg[k] = d[k]

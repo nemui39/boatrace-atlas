@@ -46,6 +46,8 @@ def adapt_formal_champion(d):
     d["ev_120"] = [p * o for p, o in zip(pf, od)]
     d["bets_final"] = dec.get("formal_bets") or []
     d["band_counts"] = dec.get("band_counts")
+    # 指標一覧へは正式側の集計だけ出す(死亡済み候補の名前を画面に出さない)
+    d["decision"] = {k: v for k, v in dec.items() if not k.startswith("candidate")}
     d["_gate_no_ticket"] = "fc_no_ticket"
     return d
 

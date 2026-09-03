@@ -20,12 +20,14 @@ STACK = Path("/home/nemui/stack2tan")
 # 実弾micro_liveから外れても、診断表示だけ継続するshadowエンジン。
 # bets_finalは公開側で無効化し、賭金・収支へは混ぜない。
 DISPLAY_ONLY_ENGINES = set()
-# 実弾昇格済みだがpreflight/submissionsを出す前でも拾いたいエンジン
-FORCE_LIVE_ENGINES = {"t3w6_calB"}
+# 公開ページは現在の実弾スリーブだけを表示する。構成腕はUnion3の内訳として扱う。
+PUBLIC_LIVE_ENGINES = {"union3_formal_kl_projection_delta015"}
 # 推論artifactのdir名が "<eng>_bets" でないエンジン
 BETS_DIR_ALIAS = {"market_rank_kl_delta015": "market_rank_kl_delta015_forward_shadow_bets",
                   # 正式チャンピオン(family_ens_w070 δ0.05): source artifact→dispatcher実弾化
-                  "family_ens_w070_delta005": "formal_champion_forward_source_v1/artifacts"}
+                  "family_ens_w070_delta005": "formal_champion_forward_source_v1/artifacts",
+                  "union3_formal_kl_projection_delta015":
+                      "union3_formal_kl_projection_source_v1/artifacts"}
 # 無送信shadow形式のartifactを実弾ディスパッチする系(KL): 上位キー由来の指標
 KL_META_KEYS = ("roi_role", "maturity_decision_use", "band_counts",
                 "decision", "forward_eligibility", "projection", "runtime_snapshot")
@@ -49,6 +51,49 @@ def adapt_formal_champion(d):
     # 指標一覧へは正式側の集計だけ出す(死亡済み候補の名前を画面に出さない)
     d["decision"] = {k: v for k, v in dec.items() if not k.startswith("candidate")}
     d["_gate_no_ticket"] = "fc_no_ticket"
+    return d
+
+
+def adapt_union3(d):
+    """Union3 sourceを公開表示用へ正規化する。
+
+    Union3は正式チャンピオン、旧KL、rank-marginal KL射影の券集合和であり、
+    構成腕を独立戦略として集計しない。
+    """
+    if not isinstance(d.get("components"), dict):
+        return d
+    comp = d["components"]
+    proj = comp.get("projection") or {}
+    ev = proj.get("ev_projection_120")
+    pf = proj.get("p_projection_decision_120")
+    if isinstance(ev, list) and len(ev) == 120:
+        d["ev_120"] = ev
+    if isinstance(pf, list) and len(pf) == 120:
+        d["p_final_120"] = pf
+    counts = comp.get("counts") or {}
+    dbg = {
+        "max_ev_gate": "union3_no_ticket",
+        "union3_arms": {
+            "formal": int(counts.get("formal") or 0),
+            "kl015": int(counts.get("kl015") or 0),
+            "projection015": int(counts.get("projection015") or 0),
+        },
+        "union3_unique_bets": int(d.get("n_bets_final") or len(d.get("bets_final") or [])),
+        "union3_overlap_memberships": int(comp.get("overlap_memberships") or 0),
+    }
+    ko, od = d.get("kumi_order_120") or [], d.get("odds_120") or []
+    if isinstance(ev, list) and ev:
+        i0 = max(range(len(ev)), key=ev.__getitem__)
+        sv = sorted(ev)
+        dbg.update({
+            "max_ev": round(ev[i0], 4),
+            "max_ev_kumi": str(ko[i0]).replace("-", "") if i0 < len(ko) else None,
+            "max_ev_odds": od[i0] if i0 < len(od) else None,
+            "ev_median_120": round(sv[len(sv) // 2], 4),
+            "ev_p90_120": round(sv[int(len(sv) * 0.9)], 4),
+        })
+    d["debug"] = dbg
+    d["_gate_no_ticket"] = "union3_no_ticket"
     return d
 
 
@@ -83,7 +128,7 @@ def fetch_result(hd, jcd, rno, cache_dir):
 
 
 def detect_engines(hd):
-    """実弾エンジンに、存在する観測専用エンジンを加えて返す。"""
+    """公開対象の実弾エンジンだけを返す。"""
     r = subprocess.run(
         ["ssh", SUB, f"ls -d {REMOTE}/{hd}/micro_live/*_submissions "
                      f"{REMOTE}/{hd}/micro_live/*_preflight.json "
@@ -101,7 +146,9 @@ def detect_engines(hd):
             live.add(name[:-len("_dispatch")])
         elif name.endswith("_bets"):
             bets.add(name[:-len("_bets")])
-    active = (live | (FORCE_LIVE_ENGINES & bets)) or bets
+    active = (live | bets) & PUBLIC_LIVE_ENGINES
+    # 当日最初のartifact生成前も、予定表にUnion3の待機行を出せるよう固定する。
+    active |= PUBLIC_LIVE_ENGINES
     display_only = (DISPLAY_ONLY_ENGINES & bets) - active
     return sorted(active | display_only), display_only
 
@@ -153,6 +200,8 @@ def main():
         except json.JSONDecodeError:
             continue
         eng = f.name.replace("_capital_settlement.json", "")
+        if eng not in engines:
+            continue
         for row in s.get("rows", []):
             settle[(eng, row["race_id"])] = row
         total["stake"] += s.get("stake_yen") or 0
@@ -188,7 +237,8 @@ def main():
             st, reason = dr.get("status"), str(dr.get("reason") or "")
             if st in ("submitted", "admitted", "already_attempted"):
                 continue
-            pre = "fc_" if eng.startswith("family_ens") else "kl_"
+            pre = ("union3_" if eng.startswith("union3_") else
+                   ("fc_" if eng.startswith("family_ens") else "kl_"))
             if "overlap" in reason or "dedup" in reason:
                 blocked.setdefault((eng, rid), pre + "overlap")
             elif "deadline" in reason or "remaining" in reason:
@@ -207,7 +257,7 @@ def main():
             rid = d.get("race_id", f.stem)
             if not rid or not rid.startswith(hd):
                 continue  # 当日以外(朝の試行ログ等)/preflight等の非レースJSONを除外
-            d = adapt_formal_champion(d)
+            d = adapt_union3(adapt_formal_champion(d))
             dbg = d.get("debug") or {}
             if not dbg and isinstance(d.get("ev_120"), list) and d.get("kumi_order_120"):
                 # KL型: debug無し。120配列から同等指標を合成
@@ -237,8 +287,9 @@ def main():
             else:
                 bets = [{"k": b["kumi"], "o": b.get("odds"),
                          "ev": round(b.get("ev", 0), 2),
-                         # 紙上stake(KLのstake=4800等)を実弾表示に使わない
-                         "stake": b.get("stake_flat100") or b.get("stake"),
+                         # 実送信後は上のreceipt額で置換される。送信前だけ予定額を表示する。
+                         "stake": (b.get("stake_flat100") or b.get("stake") or
+                                   b.get("source_shadow_stake")),
                          "pm": round(b["p_model"], 5) if b.get("p_model") else None}
                         for b in bf]
             blk = blocked.get((eng, rid))

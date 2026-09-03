@@ -65,11 +65,6 @@ def adapt_union3(d):
     comp = d["components"]
     proj = comp.get("projection") or {}
     ev = proj.get("ev_projection_120")
-    pf = proj.get("p_projection_decision_120")
-    if isinstance(ev, list) and len(ev) == 120:
-        d["ev_120"] = ev
-    if isinstance(pf, list) and len(pf) == 120:
-        d["p_final_120"] = pf
     counts = comp.get("counts") or {}
     dbg = {
         "max_ev_gate": "union3_no_ticket",
@@ -84,13 +79,12 @@ def adapt_union3(d):
     ko, od = d.get("kumi_order_120") or [], d.get("odds_120") or []
     if isinstance(ev, list) and ev:
         i0 = max(range(len(ev)), key=ev.__getitem__)
-        sv = sorted(ev)
         dbg.update({
-            "max_ev": round(ev[i0], 4),
-            "max_ev_kumi": str(ko[i0]).replace("-", "") if i0 < len(ko) else None,
-            "max_ev_odds": od[i0] if i0 < len(od) else None,
-            "ev_median_120": round(sv[len(sv) // 2], 4),
-            "ev_p90_120": round(sv[int(len(sv) * 0.9)], 4),
+            # Union3全体に単一の確率面はない。これは第3腕だけの補助値。
+            "projection015_max_ev": round(ev[i0], 4),
+            "projection015_max_ev_kumi": (
+                str(ko[i0]).replace("-", "") if i0 < len(ko) else None),
+            "projection015_max_ev_odds": od[i0] if i0 < len(od) else None,
         })
     d["debug"] = dbg
     d["_gate_no_ticket"] = "union3_no_ticket"

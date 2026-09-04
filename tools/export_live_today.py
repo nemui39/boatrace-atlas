@@ -27,7 +27,7 @@ BETS_DIR_ALIAS = {"market_rank_kl_delta015": "market_rank_kl_delta015_forward_sh
                   # 正式チャンピオン(family_ens_w070 δ0.05): source artifact→dispatcher実弾化
                   "family_ens_w070_delta005": "formal_champion_forward_source_v1/artifacts",
                   "union3_formal_kl_projection_delta015":
-                      "union3_formal_kl_projection_source_v1/artifacts"}
+                      "union3_active_source/artifacts"}
 # 無送信shadow形式のartifactを実弾ディスパッチする系(KL): 上位キー由来の指標
 KL_META_KEYS = ("roi_role", "maturity_decision_use", "band_counts",
                 "decision", "forward_eligibility", "projection", "runtime_snapshot")
@@ -122,6 +122,7 @@ def adapt_union3(d, formal=None, kl015=None):
     if arm:
         arms.append(arm)
     counts = comp.get("counts") or {}
+    additions = comp.get("v1_1_addition_counts") or {}
     dbg = {
         "max_ev_gate": "union3_no_ticket",
         "union3_arms": {
@@ -131,6 +132,10 @@ def adapt_union3(d, formal=None, kl015=None):
         },
         "union3_unique_bets": int(d.get("n_bets_final") or len(d.get("bets_final") or [])),
         "union3_overlap_memberships": int(comp.get("overlap_memberships") or 0),
+        "union3_v1_1_additions": {
+            "formal_ev110": int(additions.get("formal_unused_1_30_ev110") or 0),
+            "kl015_ev125": int(additions.get("kl015_unused_1_30_ev125") or 0),
+        },
     }
     if arms:
         best = max(arms, key=lambda value: value["max"]["ev"])
@@ -247,7 +252,15 @@ def main():
           union_components / "kl015")
     for eng in engines:
         (day / bets_dir(eng)).mkdir(parents=True, exist_ok=True)
-        rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
+        if eng == "union3_formal_kl_projection_delta015":
+            # The accounting key stays stable across the in-day v1.1 cutover.
+            # Merge old pre-cutover artifacts with v1.1 artifacts so today's
+            # already settled/live rows do not disappear from the public page.
+            target = day / bets_dir(eng)
+            rsync(f"{SUB}:{REMOTE}/{hd}/union3_formal_kl_projection_source_v1/artifacts/", target)
+            rsync(f"{SUB}:{REMOTE}/{hd}/union3_v1_1_source_v1/artifacts/", target)
+        else:
+            rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
 
     sched = {}
     sp = day / "schedule.json"

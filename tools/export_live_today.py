@@ -20,7 +20,7 @@ STACK = Path("/home/nemui/stack2tan")
 # 実弾micro_liveから外れても、診断表示だけ継続するshadowエンジン。
 # bets_finalは公開側で無効化し、賭金・収支へは混ぜない。
 DISPLAY_ONLY_ENGINES = set()
-# 公開ページは現在の実弾スリーブだけを表示する。構成腕はUnion3の内訳として扱う。
+# 公開ページは現在の実弾スリーブだけを表示する。構成腕はUnion4の内訳として扱う。
 PUBLIC_LIVE_ENGINES = {"union3_formal_kl_projection_delta015"}
 # 推論artifactのdir名が "<eng>_bets" でないエンジン
 BETS_DIR_ALIAS = {"market_rank_kl_delta015": "market_rank_kl_delta015_forward_shadow_bets",
@@ -85,9 +85,9 @@ def probability_arm(key, label, probabilities, odds, kumis, ev_values=None, top_
 
 
 def adapt_union3(d, formal=None, kl015=None):
-    """Union3 sourceを公開表示用へ正規化する。
+    """Union3/Union4 sourceを公開表示用へ正規化する。
 
-    Union3は正式チャンピオン、旧KL、rank-marginal KL射影の券集合和であり、
+    Union4はUnion3 v1.1へA4klを加えた券集合和であり、
     構成腕を独立戦略として集計しない。
     """
     if not isinstance(d.get("components"), dict):
@@ -121,6 +121,13 @@ def adapt_union3(d, formal=None, kl015=None):
     )
     if arm:
         arms.append(arm)
+    arm = probability_arm(
+        "a4kl", "A4kl 先着確率射影 δ0.15",
+        comp.get("a4kl_probability_decision_120"), odds, kumis,
+        comp.get("a4kl_ev_120"),
+    )
+    if arm:
+        arms.append(arm)
     counts = comp.get("counts") or {}
     additions = comp.get("v1_1_addition_counts") or {}
     dbg = {
@@ -135,6 +142,11 @@ def adapt_union3(d, formal=None, kl015=None):
         "union3_v1_1_additions": {
             "formal_ev110": int(additions.get("formal_unused_1_30_ev110") or 0),
             "kl015_ev125": int(additions.get("kl015_unused_1_30_ev125") or 0),
+        },
+        "union4_v1_1_a4kl": {
+            "selected": int(comp.get("a4kl_count") or 0),
+            "added_after_dedup": int(comp.get("a4kl_added_count") or 0),
+            "overlap": int(comp.get("a4kl_overlap_count") or 0),
         },
     }
     if arms:
@@ -201,7 +213,7 @@ def detect_engines(hd):
         elif name.endswith("_bets"):
             bets.add(name[:-len("_bets")])
     active = (live | bets) & PUBLIC_LIVE_ENGINES
-    # 当日最初のartifact生成前も、予定表にUnion3の待機行を出せるよう固定する。
+    # 当日最初のartifact生成前も、予定表にUnion4の待機行を出せるよう固定する。
     active |= PUBLIC_LIVE_ENGINES
     display_only = (DISPLAY_ONLY_ENGINES & bets) - active
     return sorted(active | display_only), display_only
@@ -259,6 +271,7 @@ def main():
             target = day / bets_dir(eng)
             rsync(f"{SUB}:{REMOTE}/{hd}/union3_formal_kl_projection_source_v1/artifacts/", target)
             rsync(f"{SUB}:{REMOTE}/{hd}/union3_v1_1_source_v1/artifacts/", target)
+            rsync(f"{SUB}:{REMOTE}/{hd}/union4_v1_1_source_v1/artifacts/", target)
         else:
             rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
 

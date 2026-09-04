@@ -1848,13 +1848,34 @@ function renderLiveDetail(wid){
       });
       b+="</div>";
     }
+    if(d2.arms&&d2.arms.length){
+      d2.arms.forEach(function(arm){
+        var atop=arm.top||[],amx=arm.max||{};
+        var apmax=atop.length?Math.max.apply(null,atop.map(function(t9){return t9.p*100;})):1;
+        var apcap=Math.max(5,Math.ceil(apmax/5)*5),aglines="";
+        for(var ag=5;ag<apcap;ag+=5)aglines+='<i style="left:'+(ag/apcap*100).toFixed(1)+'%"></i>';
+        b+='<div class="stmini" style="margin:12px 0 6px;color:var(--cyan)">'+arm.label+
+          ' ── 確率上位'+atop.length+'</div>'+
+          '<div class="dl" style="margin-bottom:7px">最大EV '+amx.ev+' ── '+fmtK(amx.k||"")+
+          ' / 確率 '+((amx.p||0)*100).toFixed(2)+'% / '+amx.o+'倍</div>'+
+          '<div class="bw-wrap"><div class="bw-grid k">'+aglines+'</div>';
+        atop.forEach(function(t5){
+          var apw=(t5.p*100/apcap*100).toFixed(2);
+          b+='<div class="bw-row">'+kumiChips(t5.k)+
+            '<div class="bw-track"><div class="bw-stem" style="width:'+apw+'%;background:var(--cyan);opacity:.62"></div></div>'+
+            '<span class="val">'+(t5.p*100).toFixed(2)+'%</span></div>'+
+            '<div class="dl" style="margin:-2px 0 4px 70px">EV '+t5.ev+' ── @'+t5.o+'倍</div>';
+        });
+        b+='</div>';
+      });
+    }
     /* エンジン固有の指標 */
     var xg=d2.x||{},xkeys=["candidate","package_for_day","gate_score","day_metric_combo","day_metric_a","day_metric_b","p_mkt_source","wind_bin","late_flow_reselect.late_flow_status","late_flow_reselect.updatetime"];
     var xrows="";
     xkeys.forEach(function(k){if(xg[k]!=null)xrows+=kv(k,String(xg[k]));});
     b+='<div class="kvgrid" style="margin-top:10px">'+
       kv("判定",r.bets.length?"BET "+r.bets.length+"点":"PASS")+
-      kv("maxEV",d2.mev!=null?d2.mev+" @"+fmtK(d2.mevk||""):"-")+
+      kv("3腕最大EV",d2.mev!=null?d2.mev+" @"+fmtK(d2.mevk||""):"-")+
       kv("EV med/p90",d2.med!=null?d2.med+" / "+d2.p90:"-")+
       xrows+"</div>";
     /* 買い目 or PASS */
@@ -2078,6 +2099,13 @@ function detailLines(id,eng){
     if(d2.sg&&d2.sg.length)out.push("TSσ = "+fmtA(d2.sg,2));
     if(d2.wr&&d2.wr.length)out.push("wWR = "+fmtA(d2.wr,3));
     (d2.t5||[]).forEach(function(t5){out.push("p("+fmtK(t5.k)+") = "+(t5.p*100).toFixed(2)+"%");});
+    (d2.arms||[]).forEach(function(arm){
+      var mx=arm.max||{};
+      out.push("["+arm.label+"] maxEV "+mx.ev+" @"+fmtK(mx.k||"")+" / p="+((mx.p||0)*100).toFixed(2)+"% / "+mx.o+"倍");
+      (arm.top||[]).forEach(function(t5){
+        out.push("  p("+fmtK(t5.k)+") = "+(t5.p*100).toFixed(2)+"% / EV "+t5.ev);
+      });
+    });
     if(d2.med!=null)out.push("EV med "+d2.med+" / p90 "+d2.p90+" / band "+d2.nb);
     if(d2.mev!=null)out.push("maxEV "+d2.mev+" @"+fmtK(d2.mevk||"")+" ("+d2.mevo+"倍)");
     if(d2.x)Object.keys(d2.x).forEach(function(k2){out.push(k2+" = "+d2.x[k2]);});

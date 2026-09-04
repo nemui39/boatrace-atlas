@@ -54,7 +54,37 @@ def adapt_formal_champion(d):
     return d
 
 
-def adapt_union3(d):
+def probability_arm(key, label, probabilities, odds, kumis, ev_values=None, top_n=10):
+    """1腕の120確率面を、公開用の上位確率と最大EVへ圧縮する。"""
+    if not all(isinstance(values, list) and len(values) == 120
+               for values in (probabilities, odds, kumis)):
+        return None
+    ev = ev_values if isinstance(ev_values, list) and len(ev_values) == 120 else [
+        float(p) * float(o) for p, o in zip(probabilities, odds)
+    ]
+    if not all(isinstance(value, (int, float)) for value in ev):
+        return None
+    top = sorted(range(120), key=lambda idx: float(probabilities[idx]), reverse=True)[:top_n]
+    imax = max(range(120), key=lambda idx: float(ev[idx]))
+    return {
+        "key": key,
+        "label": label,
+        "top": [{
+            "k": str(kumis[idx]).replace("-", ""),
+            "p": round(float(probabilities[idx]), 7),
+            "o": round(float(odds[idx]), 1),
+            "ev": round(float(ev[idx]), 4),
+        } for idx in top],
+        "max": {
+            "k": str(kumis[imax]).replace("-", ""),
+            "p": round(float(probabilities[imax]), 7),
+            "o": round(float(odds[imax]), 1),
+            "ev": round(float(ev[imax]), 4),
+        },
+    }
+
+
+def adapt_union3(d, formal=None, kl015=None):
     """Union3 sourceを公開表示用へ正規化する。
 
     Union3は正式チャンピオン、旧KL、rank-marginal KL射影の券集合和であり、
@@ -65,6 +95,32 @@ def adapt_union3(d):
     comp = d["components"]
     proj = comp.get("projection") or {}
     ev = proj.get("ev_projection_120")
+    kumis = d.get("kumi_order_120") or []
+    odds = d.get("odds_120") or []
+    arms = []
+    if isinstance(formal, dict):
+        arm = probability_arm(
+            "formal", "正式チャンピオン",
+            (formal.get("probability") or {}).get("p0_decision"),
+            (formal.get("input") or {}).get("odds_120"),
+            (formal.get("input") or {}).get("kumi_order_120"),
+        )
+        if arm:
+            arms.append(arm)
+    if isinstance(kl015, dict):
+        arm = probability_arm(
+            "kl015", "既存KL δ0.15",
+            kl015.get("p_final_120"), kl015.get("odds_120"),
+            kl015.get("kumi_order_120"), kl015.get("ev_120"),
+        )
+        if arm:
+            arms.append(arm)
+    arm = probability_arm(
+        "projection015", "新KL射影 δ0.15",
+        proj.get("p_projection_decision_120"), odds, kumis, ev,
+    )
+    if arm:
+        arms.append(arm)
     counts = comp.get("counts") or {}
     dbg = {
         "max_ev_gate": "union3_no_ticket",
@@ -76,17 +132,16 @@ def adapt_union3(d):
         "union3_unique_bets": int(d.get("n_bets_final") or len(d.get("bets_final") or [])),
         "union3_overlap_memberships": int(comp.get("overlap_memberships") or 0),
     }
-    ko, od = d.get("kumi_order_120") or [], d.get("odds_120") or []
-    if isinstance(ev, list) and ev:
-        i0 = max(range(len(ev)), key=ev.__getitem__)
+    if arms:
+        best = max(arms, key=lambda value: value["max"]["ev"])
         dbg.update({
-            # Union3全体に単一の確率面はない。これは第3腕だけの補助値。
-            "projection015_max_ev": round(ev[i0], 4),
-            "projection015_max_ev_kumi": (
-                str(ko[i0]).replace("-", "") if i0 < len(ko) else None),
-            "projection015_max_ev_odds": od[i0] if i0 < len(od) else None,
+            "max_ev": best["max"]["ev"],
+            "max_ev_kumi": best["max"]["k"],
+            "max_ev_odds": best["max"]["o"],
+            "union3_max_ev_arm": best["label"],
         })
     d["debug"] = dbg
+    d["_union3_arms"] = arms
     d["_gate_no_ticket"] = "union3_no_ticket"
     return d
 
@@ -163,6 +218,14 @@ def rsync(src, dst):
                    capture_output=True)
 
 
+def read_object(path: Path):
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
 def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
@@ -175,6 +238,13 @@ def main():
     rsync(f"{SUB}:/home/sub/stack2tan/data/json/{hd[:4]}/{hd[4:6]}/{hd[6:]}/"
           f"venue_*_oddstf.json", day / "oddstf")
     rsync(f"{SUB}:{REMOTE}/{hd}/micro_live/", day / "micro_live")
+    union_components = day / "union3_components"
+    (union_components / "formal").mkdir(parents=True, exist_ok=True)
+    (union_components / "kl015").mkdir(parents=True, exist_ok=True)
+    rsync(f"{SUB}:{REMOTE}/{hd}/formal_champion_forward_source_v1/artifacts/",
+          union_components / "formal")
+    rsync(f"{SUB}:{REMOTE}/{hd}/market_rank_kl_delta015_forward_shadow_bets/",
+          union_components / "kl015")
     for eng in engines:
         (day / bets_dir(eng)).mkdir(parents=True, exist_ok=True)
         rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
@@ -251,7 +321,9 @@ def main():
             rid = d.get("race_id", f.stem)
             if not rid or not rid.startswith(hd):
                 continue  # 当日以外(朝の試行ログ等)/preflight等の非レースJSONを除外
-            d = adapt_union3(adapt_formal_champion(d))
+            formal = read_object(union_components / "formal" / f"{rid}.json")
+            kl015 = read_object(union_components / "kl015" / f"{rid}.json")
+            d = adapt_union3(adapt_formal_champion(d), formal, kl015)
             dbg = d.get("debug") or {}
             if not dbg and isinstance(d.get("ev_120"), list) and d.get("kumi_order_120"):
                 # KL型: debug無し。120配列から同等指標を合成
@@ -359,6 +431,7 @@ def main():
                     "mev": dbg.get("max_ev"), "mevk": dbg.get("max_ev_kumi"),
                     "mevo": dbg.get("max_ev_odds"), "x": extra},
             })
+            races[-1]["detail"]["arms"] = d.get("_union3_arms") or []
     # 暫定精算: 本体settle未反映のBETレースは自前で結果を取得しPnLを仮確定
     rescache = day / "results"
     rescache.mkdir(exist_ok=True)

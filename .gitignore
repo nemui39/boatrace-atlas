@@ -3,3 +3,5 @@ ne50.json
 islands.js
 check.js
 data/live_today.json
+__pycache__/
+data/dashboard_boot.log

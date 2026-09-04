@@ -519,10 +519,22 @@ def main():
             m = f.stat().st_mtime
             if latest is None or m > latest[0]:
                 latest = (m, f)
-    if latest:
+    # bet-server状態は現在値を直接参照(読み取りGET)。届かない時だけ最新receiptで代替
+    try:
+        r = subprocess.run(["ssh", "-o", "ConnectTimeout=6", SUB,
+                            "curl -s --max-time 5 http://localhost:8080/status"],
+                           capture_output=True, text=True, timeout=15)
+        bs = json.loads(r.stdout) if r.stdout.strip().startswith("{") else {}
+        if "logged_in" in bs:
+            sysd["bet"] = {"ok": bool(bs.get("logged_in")), "bal": bs.get("balance"),
+                           "n": bs.get("today_bets"), "src": "live"}
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
+        pass
+    if "bet" not in sysd and latest:
         try:
             bs = json.load(open(latest[1])).get("bet_server_status") or {}
-            sysd["bet"] = {"ok": bool(bs.get("logged_in")), "bal": bs.get("balance")}
+            sysd["bet"] = {"ok": bool(bs.get("logged_in")), "bal": bs.get("balance"),
+                           "src": "receipt"}
         except json.JSONDecodeError:
             pass
     ms = day / "morning_status.json"

@@ -127,10 +127,11 @@
 <body>
   <header>
     <div class="eyebrow">BOTRACE / INFRASTRUCTURE REPORT</div>
-    <h1>ライブAIを、<br>安全に外へ見せるまで。</h1>
+    <h1>ライブAIを支える、<br>現在の公開基盤。</h1>
     <p class="lead">
       2台のPCで動く予測システムからデータを同期し、WSL2上の可視化サイトを
-      SSHとCloudflare TunnelでLAN・インターネットへ公開する構成を、面接で説明できる粒度に整理した技術レポートです。
+      SSHとCloudflare Named TunnelでLAN・インターネットへ公開しています。
+      <a href="https://botrace.nemui3900.com">botrace.nemui3900.com</a> で実際に稼働する構成を、面接で説明できる粒度に整理した技術レポートです。
     </p>
     <div class="meta">
       <span class="tag">WSL2</span><span class="tag">SSH / rsync</span>
@@ -144,7 +145,7 @@
     <a href="#overview">全体像</a><a href="#sync">同期</a><a href="#server">サーバー</a>
     <a href="#frontend">フロントエンド</a><a href="#wsl">WSLとFirewall</a>
     <a href="#ssh">SSHトンネル</a><a href="#cloudflare">外部公開</a>
-    <a href="#security">本公開前</a><a href="#interview">面接用</a><a href="#commands">コマンド</a>
+    <a href="#security">公開境界</a><a href="#interview">面接用</a><a href="#commands">コマンド</a>
   </div></nav>
 
   <main>
@@ -153,14 +154,15 @@
       <div class="callout good">
         <strong>要約：</strong> サブPCで稼働する3連単AIの成果物を、メインPCがSSH＋rsyncで読み取り専用同期します。
         メインPCのWSL2でJSONへ整形し、依存ゼロのWeb画面が定期取得します。LAN内の確認にはSSH逆トンネル、
-        外部公開にはCloudflare Tunnelを使うため、ルーターのポート開放なしでHTTPS公開できます。
+        外部公開にはCloudflare Named Tunnelを使用。独自ドメイン、HTTPS、systemd自動再起動を構成しつつ、
+        ルーターとWindows Firewallには受信ポートを開けていません。
       </div>
 
       <div class="summary">
         <div class="card"><strong>2台</strong><span>推論用サブPC＋可視化用メインPC</span></div>
         <div class="card"><strong>60秒</strong><span>サブPCからのデータ同期間隔</span></div>
         <div class="card"><strong>20秒</strong><span>ブラウザのライブJSON取得間隔</span></div>
-        <div class="card"><strong>0開放</strong><span>Cloudflare利用時の受信ポート開放</span></div>
+        <div class="card"><strong>固定URL</strong><span>botrace.nemui3900.com</span></div>
       </div>
 
       <div class="diagram" aria-label="システム構成図">
@@ -173,13 +175,13 @@
         <div class="node">
           <span class="label">MAIN PC / WSL2</span>
           <b>同期・整形・Web配信</b>
-          <ul><li>SSH＋rsyncでpull</li><li>Pythonでlive_today.json生成</li><li>静的Webサーバー :8000</li></ul>
+          <ul><li>SSH＋rsyncでpull</li><li>Pythonでlive_today.json生成</li><li>allowlist origin 127.0.0.1:8000</li></ul>
         </div>
         <div class="arrow">→</div>
         <div class="node">
-          <span class="label">VIEWERS</span>
-          <b>LAN / Internet</b>
-          <ul><li>サブPC：SSH逆トンネル</li><li>外部：Cloudflare HTTPS</li><li>ブラウザ：HTML/JS/Canvas</li></ul>
+          <span class="label">DELIVERY / VIEWERS</span>
+          <b>SSH / Cloudflare</b>
+          <ul><li>サブPC：SSH逆トンネル</li><li>外部：Named Tunnel＋HTTPS</li><li>固定URL：botrace.nemui3900.com</li></ul>
         </div>
       </div>
 
@@ -190,6 +192,18 @@
           <tr><td>公開用データの整形</td><td>メインPC WSL2</td><td>生ログをそのまま公開せず、表示に必要な項目だけJSONへ変換するため。</td></tr>
           <tr><td>画面と静的配信</td><td>メインPC WSL2</td><td>ローカルで素早く変更・確認し、同じ成果物をトンネル経由で見せるため。</td></tr>
           <tr><td>公開HTTPS入口</td><td>Cloudflare Edge</td><td>自宅ルーターの受信ポートを開けず、外向き接続だけで公開するため。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>2026-07-13 現在の稼働状態</h3>
+      <table>
+        <thead><tr><th>コンポーネント</th><th>現在の状態</th><th>起動方式</th></tr></thead>
+        <tbody>
+          <tr><td>公開origin</td><td><code>boatrace-public.service</code>：active / enabled</td><td>systemd user service、自動再起動</td></tr>
+          <tr><td>Named Tunnel</td><td><code>cloudflared.service</code>：active / enabled</td><td>system service、自動再起動</td></tr>
+          <tr><td>ライブ同期</td><td><code>tools/live_sync_loop.sh</code>：稼働中</td><td>バックグラウンドプロセス。まだsystemd未移行</td></tr>
+          <tr><td>サブPC向け逆トンネル</td><td><code>ssh -fNT -R ...</code>：稼働中</td><td>バックグラウンドSSH。回線断・PC再起動時は再実行が必要</td></tr>
+          <tr><td>公開確認</td><td>ページ／JSON：200、非公開パス：404</td><td>固定URLへの外形監視で確認</td></tr>
         </tbody>
       </table>
     </section>
@@ -227,6 +241,10 @@ done
 
 # 出力（Gitには含めない）
 data/live_today.json</code></pre>
+      <div class="callout warn">
+        <strong>現在の運用上の残課題：</strong> exporterの60秒ループは稼働中ですが、まだsystemdサービスではありません。
+        VS Codeとは独立したバックグラウンドプロセスとして動いているものの、WSL終了・PC再起動後の自動復旧は今後の対応です。
+      </div>
     </section>
 
     <section id="server">
@@ -346,8 +364,8 @@ http://127.0.0.1:8000</code></pre>
       </div>
       <p>
         VS Code再起動で落ちたのは、最初のSSHプロセスがターミナルに紐づいていたためです。
-        <code>-f</code>でバックグラウンド化すればVS Code終了には耐えます。PC再起動・回線断からも自動復旧させるなら、
-        systemd user serviceまたはautosshで常駐化します。
+        現在は<code>-f</code>でバックグラウンド化しているためVS Code終了には耐えます。一方、PC再起動や回線断からの
+        自動再接続はまだ未実装です。完全自動化する場合はsystemd user serviceまたはautosshへ移行します。
       </p>
     </section>
 
@@ -356,7 +374,7 @@ http://127.0.0.1:8000</code></pre>
       <p>
         LAN用SSHトンネルと外部公開用Cloudflare Tunnelは目的が異なります。
         <code>cloudflared</code>がメインPCからCloudflareへ<strong>外向き</strong>の接続を張り、
-        公開URLへのHTTPSアクセスをその接続経由で <code>localhost:8000</code>へ届けます。
+        公開URLへのHTTPSアクセスをその接続経由で <code>127.0.0.1:8000</code>へ届けます。
       </p>
       <div class="diagram">
         <div class="node"><span class="label">PUBLIC USER</span><b>HTTPS URL</b><ul><li>ブラウザ</li><li>TLS暗号化</li><li>自宅IPを直接指定しない</li></ul></div>
@@ -371,18 +389,33 @@ sudo systemctl status cloudflared --no-pager
 
 # 固定公開URL
 https://botrace.nemui3900.com</code></pre>
+      <h3>現在のPublished application</h3>
+      <table>
+        <tbody>
+          <tr><th>Tunnel name</th><td><code>botrace-portfolio</code></td></tr>
+          <tr><th>Public hostname</th><td><code>botrace.nemui3900.com</code></td></tr>
+          <tr><th>DNS</th><td>Cloudflare管理のCNAME → Named Tunnel</td></tr>
+          <tr><th>Origin service</th><td><code>http://127.0.0.1:8000</code></td></tr>
+          <tr><th>Process</th><td><code>cloudflared.service</code>（system service、enabled）</td></tr>
+          <tr><th>Inbound ports</th><td>開放なし。cloudflaredからCloudflareへの外向き接続のみ</td></tr>
+        </tbody>
+      </table>
       <table>
         <thead><tr><th></th><th>Quick Tunnel（初期検証）</th><th>Named Tunnel（現在）</th></tr></thead>
         <tbody>
-          <tr><td>URL</td><td>起動ごとに変わる <code>trycloudflare.com</code></td><td>独自ドメインで固定可能</td></tr>
+          <tr><td>URL</td><td>起動ごとに変わる <code>trycloudflare.com</code></td><td><code>botrace.nemui3900.com</code>で固定済み</td></tr>
           <tr><td>準備</td><td>アカウントなしですぐ試せる</td><td>Cloudflareアカウント、ドメイン、認証が必要</td></tr>
           <tr><td>用途</td><td>動作確認、短時間のデモ</td><td>履歴書・ポートフォリオから常設リンク</td></tr>
-          <tr><td>運用</td><td>プロセス終了でURL消滅</td><td>サービス化、自動再接続、アクセス制御が可能</td></tr>
+          <tr><td>運用</td><td>プロセス終了でURL消滅</td><td><code>cloudflared.service</code>として常駐・自動再接続</td></tr>
         </tbody>
       </table>
       <div class="callout good">
         <strong>なぜポート開放しないのか：</strong> 自宅ルーターやWindowsへインターネットからの受信口を作らず、
-        公開入口をCloudflare側へ寄せられます。HTTPS証明書の管理も単純になり、デモ公開の安全性と運用性が上がります。
+        公開入口をCloudflare側へ寄せられます。HTTPS証明書の管理もCloudflareへ寄せ、originはloopbackに閉じたまま運用できます。
+      </div>
+      <div class="callout warn">
+        <strong>Windows再起動時の注意：</strong> cloudflaredはWSL2内のsystemdで自動起動しますが、前提としてWSLディストリビューションが起動している必要があります。
+        Windowsログオン時から完全無人で公開を復旧するには、WSL起動用のタスクスケジューラ設定が別途必要です。
       </div>
     </section>
 
@@ -421,7 +454,7 @@ Cloudflare
         <div class="qa"><b>Q. なぜ2台構成ですか？</b><p>推論・投票系と表示系の負荷と障害範囲を分離するためです。表示側はサブPCから読み取るだけにし、公開サイトから実運用系への書き込み経路を持たせていません。</p></div>
         <div class="qa"><b>Q. なぜDBやAPIを使わないのですか？</b><p>更新頻度が分単位で、クライアントは読み取り専用だからです。単一JSONのスナップショットで要件を満たし、APIサーバーやDBの運用コストを避けました。</p></div>
         <div class="qa"><b>Q. SSHトンネルとは？</b><p>SSHの暗号化接続内で別のTCP通信を転送する仕組みです。今回は逆トンネルにより、サブPCのlocalhostをメインPCのWebサーバーへ接続しました。</p></div>
-        <div class="qa"><b>Q. Cloudflare Tunnelの利点は？</b><p>自宅側から外向き接続を張るため、ルーターのポート開放なしでHTTPS公開できます。公開入口と証明書管理をCloudflare側へ寄せられます。</p></div>
+        <div class="qa"><b>Q. Cloudflare Tunnelの利点は？</b><p>自宅側から外向き接続を張るため、ルーターのポート開放なしでHTTPS公開できます。Named Tunnelにより固定ドメイン、証明書、自動再接続もCloudflareとsystemdへ寄せています。</p></div>
         <div class="qa"><b>Q. なぜWebSocketではない？</b><p>元データの生成が60秒周期なので20秒ポーリングで十分です。リアルタイム性の必要以上に双方向常時接続を導入せず、再接続や状態管理を単純にしました。</p></div>
         <div class="qa"><b>Q. TypeScriptを使っていますか？</b><p>現状はVanilla JavaScriptです。初期のゼロビルドと試作速度を優先しました。データ型と画面状態が増えたため、次の保守段階ではTypeScript＋schema validationへの移行価値があります。</p></div>
         <div class="qa"><b>Q. セキュリティは？</b><p>サブPCへの同期は公開鍵SSHのpullのみ。外部公開は受信ポートを開けないNamed Tunnel方式です。originはloopback限定で、allowlistにないdotfileやツールは404になります。</p></div>
@@ -433,7 +466,7 @@ Cloudflare
         「このサイトは、サブPCで実運用している3連単AIの状態を見せるポートフォリオです。
         推論成果物をメインPCのWSL2からSSHとrsyncで読み取り専用同期し、Pythonで公開用JSONへ整形しています。
         フロントはVanilla JavaScriptとCanvasで、20秒ごとにJSONを取得して可視化します。
-        LAN確認ではSSH逆トンネル、外部公開ではCloudflare Tunnelを使いました。
+        LAN確認ではSSH逆トンネル、外部公開では固定ドメイン付きのCloudflare Named Tunnelを使っています。
         そのためWindows Firewallや自宅ルーターに受信ポートを開けずにHTTPS公開できます。
         originはloopbackだけで待ち受け、公開パスもトップページとライブJSONへ限定しています。」
       </div>
@@ -449,6 +482,7 @@ systemctl --user restart boatrace-public</code></pre>
       <pre><code>cd /home/nemui/boatrace-atlas
 nohup bash tools/live_sync_loop.sh \
   &gt;/tmp/botrace-live-sync.log 2&gt;&amp;1 &amp;</code></pre>
+      <p class="muted">現在はこのバックグラウンド方式。PC再起動後の自動復旧は未対応です。</p>
 
       <h3>サブPCから閲覧する逆トンネル</h3>
       <pre><code>ssh -fNT \
@@ -474,6 +508,11 @@ ss -tlnp | grep :8000
 # ローカル配信
 curl -I http://127.0.0.1:8000/
 
+# 固定URLと公開境界
+curl -I https://botrace.nemui3900.com/
+curl -I https://botrace.nemui3900.com/data/live_today.json
+curl -I https://botrace.nemui3900.com/.git/config  # 404が正しい
+
 # サービス
 systemctl --user is-active boatrace-public
 sudo systemctl is-active cloudflared
@@ -488,7 +527,7 @@ ssh sub 'hostname; date'</code></pre>
 
   <footer>
     <p>BOTRACE — TRIFECTA ENGINE / Network &amp; Deployment Architecture</p>
-    <p>この文書は、2026-07-13時点で稼働するNamed Tunnel・固定ドメイン・allowlist originの現行構成を説明しています。</p>
+    <p>Revision 2 — 2026-07-13。Named Tunnel・固定ドメイン・allowlist originの実稼働状態に合わせて更新。</p>
   </footer>
 </body>
 </html>

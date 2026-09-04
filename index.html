@@ -1567,6 +1567,18 @@ var pipeEl=document.getElementById("pipe");
 var pipebtn=document.getElementById("pipebtn");
 function ttime(s){var m=/(\d{1,2}:\d{2}(:\d{2})?)/.exec(s||"");return m?m[1]:(s||"--");}
 function fmtK(k){return String(k).split("").join("-");}
+/* 3連単券面kを 1着→2着→3着 の艇色3分割グラデーションにする。帯幅=艇別強度s(6要素)の比、sが無ければ等分 */
+function triGrad(k,s){
+  var ds=String(k).split("");
+  if(ds.length!==3)return LANE_HEX[+ds[0]-1]||"#5cd6ff";
+  var sv3=(s&&s.length===6)?ds.map(function(c9){return Math.max(0.02,s[+c9-1]||0);}):[1,1,1];
+  var tot3=sv3[0]+sv3[1]+sv3[2];
+  var q1=(sv3[0]/tot3*100).toFixed(1),q2=((sv3[0]+sv3[1])/tot3*100).toFixed(1);
+  return "linear-gradient(90deg,"+
+    LANE_HEX[+ds[0]-1]+" 0 "+q1+"%,"+
+    LANE_HEX[+ds[1]-1]+" "+q1+"% "+q2+"%,"+
+    LANE_HEX[+ds[2]-1]+" "+q2+"% 100%)";
+}
 function kumiChips(k,cls){
   return '<span class="kch'+(cls?" "+cls:"")+'">'+String(k).split("").map(function(c2){
     return '<span class="lane sm l'+c2+'">'+c2+"</span>";}).join("")+"</span>";
@@ -1839,16 +1851,8 @@ function renderLiveDetail(wid){
         '<div class="bw-grid k">'+glines+'</div>';
       d2.t5.forEach(function(t5){
         var pw2=(t5.p*100/pcap*100).toFixed(2);
-        var ds=String(t5.k).split("");
-        var sv3=(d2.s&&d2.s.length===6)?ds.map(function(c9){return Math.max(0.02,d2.s[+c9-1]||0);}):[1,1,1];
-        var tot3=sv3[0]+sv3[1]+sv3[2];
-        var q1=(sv3[0]/tot3*100).toFixed(1),q2=((sv3[0]+sv3[1])/tot3*100).toFixed(1);
-        var g3="linear-gradient(90deg,"+
-          LANE_HEX[+ds[0]-1]+" 0 "+q1+"%,"+
-          LANE_HEX[+ds[1]-1]+" "+q1+"% "+q2+"%,"+
-          LANE_HEX[+ds[2]-1]+" "+q2+"% 100%)";
         b+='<div class="bw-row">'+kumiChips(t5.k)+
-          '<div class="bw-track"><div style="position:absolute;top:2px;bottom:2px;left:0;width:'+pw2+'%;background:'+g3+'"></div></div>'+
+          '<div class="bw-track"><div style="position:absolute;top:2px;bottom:2px;left:0;width:'+pw2+'%;background:'+triGrad(t5.k,d2.s)+'"></div></div>'+
           '<span class="val">'+(t5.p*100).toFixed(1)+"%</span></div>";
       });
       b+="</div>";
@@ -1870,7 +1874,7 @@ function renderLiveDetail(wid){
         atop.forEach(function(t5){
           var apw=(t5.p*100/apcap*100).toFixed(2);
           b+='<div class="bw-row">'+kumiChips(t5.k)+
-            '<div class="bw-track"><div class="bw-stem" style="width:'+apw+'%;height:3px;top:4.5px;background:'+acol+';opacity:.8"></div></div>'+
+            '<div class="bw-track"><div style="position:absolute;top:2px;bottom:2px;left:0;width:'+apw+'%;background:'+triGrad(t5.k,d2.s)+'"></div></div>'+
             '<span class="val">'+(t5.p*100).toFixed(2)+'%</span></div>'+
             '<div class="dl" style="margin:-2px 0 4px 70px">EV '+t5.ev+' ── @'+t5.o+'倍</div>';
         });

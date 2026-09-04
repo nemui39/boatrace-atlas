@@ -242,6 +242,11 @@
   .bw-stem{position:absolute;top:5.5px;left:0;height:1px;background:rgba(92,214,255,.5);}
   .bw-grid.k{left:70px;}
   .bw-row .val{font-family:ui-monospace,Consolas,monospace;font-size:11px;width:76px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto;}
+  .arm-prob{margin:12px 0;padding:9px 10px 7px;border-left:3px solid var(--arm);
+    background:rgba(10,20,31,.62);box-shadow:inset 0 0 18px var(--arm-glow);}
+  .arm-prob .arm-name{font-family:ui-monospace,Consolas,monospace;font-size:11px;
+    font-weight:700;letter-spacing:.12em;color:var(--arm);}
+  .arm-prob .bw-grid i{background:var(--arm-glow);}
   .lane.sm{width:15px;height:15px;font-size:9px;}
   .kch{display:inline-flex;gap:2px;width:60px;flex:0 0 auto;}
   .kch.f{width:auto;margin-right:5px;vertical-align:-3px;}
@@ -1851,22 +1856,25 @@ function renderLiveDetail(wid){
     if(d2.arms&&d2.arms.length){
       d2.arms.forEach(function(arm){
         var atop=arm.top||[],amx=arm.max||{};
+        var acol={formal:"#2fd3b8",kl015:"#b57cff",projection015:"#5cd6ff"}[arm.key]||"#5cd6ff";
+        var aglow={formal:"rgba(47,211,184,.12)",kl015:"rgba(181,124,255,.12)",projection015:"rgba(92,214,255,.12)"}[arm.key]||"rgba(92,214,255,.12)";
         var apmax=atop.length?Math.max.apply(null,atop.map(function(t9){return t9.p*100;})):1;
         var apcap=Math.max(5,Math.ceil(apmax/5)*5),aglines="";
         for(var ag=5;ag<apcap;ag+=5)aglines+='<i style="left:'+(ag/apcap*100).toFixed(1)+'%"></i>';
-        b+='<div class="stmini" style="margin:12px 0 6px;color:var(--cyan)">'+arm.label+
+        b+='<div class="arm-prob" style="--arm:'+acol+';--arm-glow:'+aglow+'">'+
+          '<div class="arm-name">● '+arm.label+
           ' ── 確率上位'+atop.length+'</div>'+
-          '<div class="dl" style="margin-bottom:7px">最大EV '+amx.ev+' ── '+fmtK(amx.k||"")+
+          '<div class="dl" style="margin:5px 0 8px;color:'+acol+'">最大EV '+amx.ev+' ── '+fmtK(amx.k||"")+
           ' / 確率 '+((amx.p||0)*100).toFixed(2)+'% / '+amx.o+'倍</div>'+
           '<div class="bw-wrap"><div class="bw-grid k">'+aglines+'</div>';
         atop.forEach(function(t5){
           var apw=(t5.p*100/apcap*100).toFixed(2);
           b+='<div class="bw-row">'+kumiChips(t5.k)+
-            '<div class="bw-track"><div class="bw-stem" style="width:'+apw+'%;background:var(--cyan);opacity:.62"></div></div>'+
+            '<div class="bw-track"><div class="bw-stem" style="width:'+apw+'%;height:3px;top:4.5px;background:'+acol+';opacity:.8"></div></div>'+
             '<span class="val">'+(t5.p*100).toFixed(2)+'%</span></div>'+
             '<div class="dl" style="margin:-2px 0 4px 70px">EV '+t5.ev+' ── @'+t5.o+'倍</div>';
         });
-        b+='</div>';
+        b+='</div></div>';
       });
     }
     /* エンジン固有の指標 */

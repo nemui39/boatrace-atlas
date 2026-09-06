@@ -6,6 +6,7 @@ usage: python3 tools/export_live_today.py [YYYYMMDD]
 """
 import datetime
 import json
+import os
 import re
 import subprocess
 import time
@@ -20,8 +21,29 @@ STACK = Path("/home/nemui/stack2tan")
 # 実弾micro_liveから外れても、診断表示だけ継続するshadowエンジン。
 # bets_finalは公開側で無効化し、賭金・収支へは混ぜない。
 DISPLAY_ONLY_ENGINES = set()
-# 公開ページは現在の実弾スリーブだけを表示する。構成腕はUnion4の内訳として扱う。
+# 構成腕はUnionの内訳として扱い、実額は共通運用キーで一度だけ集計する。
 PUBLIC_LIVE_ENGINES = {"union3_formal_kl_projection_delta015"}
+UNION_SOURCE_DIRS = (
+    "union3_formal_kl_projection_source_v1", "union3_v1_1_source_v1",
+    "union4_v1_1_source_v1", "union5_v1_1_source_v1",
+)
+UNION_DISPATCH_DIRS = (
+    "union3_formal_kl_projection_delta015_dispatch", "union3_v1_1_dispatch",
+    "union4_v1_1_dispatch", "union5_v1_1_dispatch",
+)
+
+
+def strategy_label(contract):
+    for prefix, label in (("union5_v1_1", "UNION5 v1.1"), ("union4_v1_1", "UNION4 v1.1"),
+                          ("union3_v1_1", "UNION3 v1.1"), ("union3_formal", "UNION3")):
+        if str(contract).startswith(prefix):
+            return label
+    return None
+
+
+def dispatch_paths(day, eng):
+    names = UNION_DISPATCH_DIRS if eng in PUBLIC_LIVE_ENGINES else (f"{eng}_dispatch",)
+    return [p for name in names for p in sorted((day / "micro_live" / name).glob("*.json"))]
 # 推論artifactのdir名が "<eng>_bets" でないエンジン
 BETS_DIR_ALIAS = {"market_rank_kl_delta015": "market_rank_kl_delta015_forward_shadow_bets",
                   # 正式チャンピオン(family_ens_w070 δ0.05): source artifact→dispatcher実弾化
@@ -85,7 +107,7 @@ def probability_arm(key, label, probabilities, odds, kumis, ev_values=None, top_
 
 
 def adapt_union3(d, formal=None, kl015=None):
-    """Union3/Union4 sourceを公開表示用へ正規化する。
+    """Union3/Union4/Union5 sourceを公開表示用へ正規化する。
 
     Union4はUnion3 v1.1へA4klを加えた券集合和であり、
     構成腕を独立戦略として集計しない。
@@ -93,6 +115,7 @@ def adapt_union3(d, formal=None, kl015=None):
     if not isinstance(d.get("components"), dict):
         return d
     comp = d["components"]
+    d["_strategy_label"] = strategy_label(d.get("contract"))
     proj = comp.get("projection") or {}
     ev = proj.get("ev_projection_120")
     kumis = d.get("kumi_order_120") or []
@@ -127,6 +150,12 @@ def adapt_union3(d, formal=None, kl015=None):
         comp.get("a4kl_ev_120"),
     )
     if arm:
+        arms.append(arm)
+    fifth = d.get("fifth_arm") or {}
+    arm = probability_arm("r1pt", "第5腕 合成確率", fifth.get("decision_120"), odds, kumis)
+    if arm:
+        arm.update({"selected": int(comp.get("r1pt_count") or 0),
+                    "added_after_dedup": int(comp.get("r1pt_added_count") or 0)})
         arms.append(arm)
     counts = comp.get("counts") or {}
     additions = comp.get("v1_1_addition_counts") or {}
@@ -213,7 +242,7 @@ def detect_engines(hd):
         elif name.endswith("_bets"):
             bets.add(name[:-len("_bets")])
     active = (live | bets) & PUBLIC_LIVE_ENGINES
-    # 当日最初のartifact生成前も、予定表にUnion4の待機行を出せるよう固定する。
+    # 当日最初のartifact生成前も、予定表にUnionの待機行を出す。
     active |= PUBLIC_LIVE_ENGINES
     display_only = (DISPLAY_ONLY_ENGINES & bets) - active
     return sorted(active | display_only), display_only
@@ -243,11 +272,23 @@ def read_object(path: Path):
     return value if isinstance(value, dict) else None
 
 
+def active_union_label():
+    """Read only enabled strategy names; never expose marker bodies or models."""
+    command = "cd /home/sub/stack2tan && for name in union5_v1_1 union4_v1_1 union3_v1_1 union3_formal_kl_projection; do if [ -f config/live_sleeves/${name}_micro_live.enabled ]; then printf '%s' \"$name\"; break; fi; done"
+    try:
+        result = subprocess.run(["ssh", "-o", "ConnectTimeout=6", SUB, command],
+                                capture_output=True, text=True, timeout=12)
+        return strategy_label(result.stdout.strip()) if result.returncode == 0 else None
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
 def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
     day.mkdir(parents=True, exist_ok=True)
     engines, display_only = detect_engines(hd)
+    current_label = active_union_label()
     print("engines:", engines, "display_only:", sorted(display_only))
     rsync(f"{SUB}:{REMOTE}/{hd}/schedule.json", day)
     rsync(f"{SUB}:{REMOTE}/{hd}/morning_status.json", day)
@@ -269,9 +310,8 @@ def main():
             # Merge old pre-cutover artifacts with v1.1 artifacts so today's
             # already settled/live rows do not disappear from the public page.
             target = day / bets_dir(eng)
-            rsync(f"{SUB}:{REMOTE}/{hd}/union3_formal_kl_projection_source_v1/artifacts/", target)
-            rsync(f"{SUB}:{REMOTE}/{hd}/union3_v1_1_source_v1/artifacts/", target)
-            rsync(f"{SUB}:{REMOTE}/{hd}/union4_v1_1_source_v1/artifacts/", target)
+            for source in UNION_SOURCE_DIRS:
+                rsync(f"{SUB}:{REMOTE}/{hd}/{source}/artifacts/", target)
         else:
             rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
 
@@ -318,7 +358,7 @@ def main():
                 b["combo"].replace("-", ""): b["amount"]
                 for b in (rc.get("payload") or {}).get("bets", [])}
         # KL型: ディスパッチ受領票(重複除去/締切/sender遮断)
-        for f in (day / "micro_live" / f"{eng}_dispatch").glob("*.json"):
+        for f in dispatch_paths(day, eng):
             try:
                 dr = json.load(open(f))
             except json.JSONDecodeError:
@@ -399,6 +439,11 @@ def main():
                     blk = "no_receipt"
             if is_observer:
                 bets = []  # shadowの疑似買い目を実弾成績へ混ぜない
+            planned = []
+            if bets and amts is None:
+                # Source stake is a research reference, never an actual debit.
+                planned = [{k: v for k, v in bet.items() if k != "stake"} for bet in bets]
+                bets = []
             # debug全フィールドの自動吸い上げ (スカラー+1段ネスト辞書)
             SKIP = {"max_ev", "max_ev_kumi", "max_ev_odds", "ev_median_120",
                     "ev_p90_120", "n_odds_in_band", "s_values", "ts_mu",
@@ -436,14 +481,16 @@ def main():
             sc = sched.get(rid, {})
             races.append({
                 "id": rid, "eng": eng,
+                "strategy_label": d.get("_strategy_label"),
                 "obs": is_observer,
                 "venue": sc.get("venue_name"), "rno": sc.get("rno"),
                 "deadline": sc.get("deadline"),
                 "verdict": ("observe" if is_observer else
                             ("blocked:" + blk if (blk and not bets) else
-                             ("bet" if bets else dbg.get("max_ev_gate", "no_ev")))),
+                             ("bet" if bets else ("pending_submission" if planned else dbg.get("max_ev_gate", "no_ev"))))),
                 "max_ev": dbg.get("max_ev"), "max_ev_kumi": dbg.get("max_ev_kumi"),
                 "bets": bets,
+                "planned_bets": planned,
                 "win": row.get("winno_3t"), "pnl": row.get("pnl_yen"),
                 "settled": row.get("status") == "settled",
                 "detail": {
@@ -585,11 +632,14 @@ def main():
         "total": total,
         "sys": sysd,
         "races": races,
+        "engine_labels": {eng: current_label for eng in PUBLIC_LIVE_ENGINES if current_label},
     }
     dst = REPO / "data"
     dst.mkdir(exist_ok=True)
-    with open(dst / "live_today.json", "w") as f:
+    temporary = dst / f".live_today.{os.getpid()}.tmp"
+    with temporary.open("w") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    temporary.replace(dst / "live_today.json")
     print(f"live_today.json: {out['n_processed']} processed / "
           f"{out['n_scheduled']} scheduled, pnl {total['pnl']}")
 

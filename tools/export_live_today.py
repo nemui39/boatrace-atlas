@@ -25,16 +25,16 @@ DISPLAY_ONLY_ENGINES = set()
 PUBLIC_LIVE_ENGINES = {"union3_formal_kl_projection_delta015"}
 UNION_SOURCE_DIRS = (
     "union3_formal_kl_projection_source_v1", "union3_v1_1_source_v1",
-    "union4_v1_1_source_v1", "union5_v1_1_source_v1",
+    "union4_v1_1_source_v1", "union5_v1_1_source_v1", "union6_mid50_100_source_v1",
 )
 UNION_DISPATCH_DIRS = (
     "union3_formal_kl_projection_delta015_dispatch", "union3_v1_1_dispatch",
-    "union4_v1_1_dispatch", "union5_v1_1_dispatch",
+    "union4_v1_1_dispatch", "union5_v1_1_dispatch", "union6_mid50_100_dispatch",
 )
 
 
 def strategy_label(contract):
-    for prefix, label in (("union5_v1_1", "UNION5 v1.1"), ("union4_v1_1", "UNION4 v1.1"),
+    for prefix, label in (("union6_mid50_100", "UNION6"), ("union5_v1_1", "UNION5 v1.1"), ("union4_v1_1", "UNION4 v1.1"),
                           ("union3_v1_1", "UNION3 v1.1"), ("union3_formal", "UNION3")):
         if str(contract).startswith(prefix):
             return label
@@ -186,6 +186,18 @@ def adapt_union3(d, formal=None, kl015=None):
             "max_ev_odds": best["max"]["o"],
             "union3_max_ev_arm": best["label"],
         })
+    sixth = d.get("sixth_arm")
+    if isinstance(sixth, dict):
+        ready = sixth.get("status") == "READY"
+        reason = str(sixth.get("reason") or "")
+        # Publish only an explicit small status object, never raw traceback/paths.
+        d["_sixth_arm"] = {
+            "label": "第6腕 50〜100倍の追加ルール",
+            "status": "ready" if ready else "hold",
+            "status_label": "計算完了" if ready else "追加を保留・Union5のみで判定",
+            "reason": "同日先行レースの確定オッズが未取得" if "prior final coverage missing" in reason else ("" if ready else "追加腕の入力・検査条件が未完了"),
+            "added": int(sixth.get("added_count") or 0),
+        }
     d["debug"] = dbg
     d["_union3_arms"] = arms
     d["_gate_no_ticket"] = "union3_no_ticket"
@@ -274,7 +286,7 @@ def read_object(path: Path):
 
 def active_union_label():
     """Read only enabled strategy names; never expose marker bodies or models."""
-    command = "cd /home/sub/stack2tan && for name in union5_v1_1 union4_v1_1 union3_v1_1 union3_formal_kl_projection; do if [ -f config/live_sleeves/${name}_micro_live.enabled ]; then printf '%s' \"$name\"; break; fi; done"
+    command = "cd /home/sub/stack2tan && for name in union6_mid50_100 union5_v1_1 union4_v1_1 union3_v1_1 union3_formal_kl_projection; do if [ -f config/live_sleeves/${name}_micro_live.enabled ]; then printf '%s' \"$name\"; break; fi; done"
     try:
         result = subprocess.run(["ssh", "-o", "ConnectTimeout=6", SUB, command],
                                 capture_output=True, text=True, timeout=12)
@@ -505,6 +517,8 @@ def main():
                     "mevo": dbg.get("max_ev_odds"), "x": extra},
             })
             races[-1]["detail"]["arms"] = d.get("_union3_arms") or []
+            if d.get("_sixth_arm"):
+                races[-1]["detail"]["sixth_arm"] = d["_sixth_arm"]
     # 暫定精算: 本体settle未反映のBETレースは自前で結果を取得しPnLを仮確定
     rescache = day / "results"
     rescache.mkdir(exist_ok=True)

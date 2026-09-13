@@ -565,8 +565,8 @@
     <div class="pipe-in">
       <div class="pipe-eyebrow">BOTRACE ── LIVE OPERATIONS</div>
       <h2>Win as expected, lose as expected. Now, roll the dice<span id="dice" title="grab &amp; throw"></span></h2>
-      <p class="pipe-sub">Today's operations log ── two autonomous betting bots.</p>
-      <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span></div>
+      <p class="pipe-sub" id="active-strategy">稼働中の戦略を確認中…</p>
+      <div class="live-head"><span id="live-badge" class="lb">SYNC</span><span id="live-sum">当日フィード取得中…</span><button id="live-latest" type="button">最新レースへ</button></div>
       <div class="main-cols">
         <div>
           <div class="feed-cols">
@@ -1713,7 +1713,12 @@ function renderSys(d){
   else tile("off","INFER","--","");
   document.getElementById("syslamps").innerHTML=t.join("");
 }
-var liveSel=null,vlJcd=null,viJcd=null,lastDK="";
+var liveSel=null,vlJcd=null,viJcd=null,lastDK="",latestLiveId=null;
+document.getElementById("live-latest").addEventListener("click",function(){
+  if(!latestLiveId)return;liveSel=latestLiveId;lastDK="";
+  Array.prototype.forEach.call(document.getElementById("live-feed").children,function(x){x.classList.toggle("on",x.getAttribute("data-id")===liveSel);});
+  renderLiveDetail(liveSel);
+});
 /* 公式サイト「最近3ヶ月」の1コース1着率 (2026-07-10取得、手動更新) */
 var REAL_IN={1:51.9,2:40.0,3:44.7,4:46.5,5:58.3,6:55.4,7:53.5,8:57.7,9:57.8,10:50.1,11:54.8,12:59.6,13:62.9,14:51.2,15:56.5,16:55.1,17:60.0,18:63.4,19:63.3,20:57.6,21:61.1,22:62.6,23:58.3,24:57.3};
 
@@ -1797,7 +1802,7 @@ function renderLiveDetail(wid){
   for(var i=0;i<SCHED.length;i++)if(SCHED[i].id===id){sc=SCHED[i];break;}
   updateVenueLive(id.split("_")[1],sc?sc.v:"");
   renderVenueInfo(id.split("_")[1]);
-  var dk=wid+"|"+rs.map(function(r){var st3=r.bets.reduce(function(a3,b3){return a3+(b3.stake||0);},0);return r.eng+":"+r.strategy_label+":"+r.verdict+":"+(r.planned_bets||[]).length+":"+(r.detail&&r.detail.arms?r.detail.arms.length:0)+":"+(r.pnl!=null?r.pnl:"?")+":"+r.bets.length+":"+st3+(r.settled?"s":"");}).join(",")+
+  var dk=wid+"|"+rs.map(function(r){var st3=r.bets.reduce(function(a3,b3){return a3+(b3.stake||0);},0);return r.eng+":"+r.strategy_label+":"+JSON.stringify(r.detail&&r.detail.sixth_arm||null)+":"+r.verdict+":"+(r.planned_bets||[]).length+":"+(r.detail&&r.detail.arms?r.detail.arms.length:0)+":"+(r.pnl!=null?r.pnl:"?")+":"+r.bets.length+":"+st3+(r.settled?"s":"");}).join(",")+
     "|"+((!rs.length&&sc)?String(sc.tan_t||"")+(sc.card?"c":""):"");
   if(dk===lastDK)return;
   lastDK=dk;
@@ -2045,6 +2050,8 @@ function loadLive(){
     if(!r.ok)throw 0;return r.json();
   }).then(function(d){
     regEngines(d);
+    document.getElementById("active-strategy").textContent="現在の稼働："+Object.keys(d.engine_labels||{}).map(function(e){return d.engine_labels[e];}).join(" / ")+" ── 詳細は選択したレースの実行記録";
+    latestLiveId=d.races.length?d.races[d.races.length-1].id:null;
     var badge=document.getElementById("live-badge");
     badge.innerHTML='<span class="lb-dot"></span>LIVE '+d.date.slice(4,6)+"/"+d.date.slice(6);
     badge.className="lb on";
@@ -2348,7 +2355,7 @@ function renderWorklog(nsec){
       for(var sl=0;sl<6;sl++)if(!used[sl]){wlSlotMap[a.wid]=sl;used[sl]=1;break;}
     }
   });
-  var ids=act.map(function(a){return a.wid;}).join(",");
+  var ids=act.map(function(a){return a.wid+":"+(ENG_SHORT[a.eng]||a.eng);}).join(",");
   if(ids!==wlIds){
     wlIds=ids;
     el.innerHTML=act.map(function(a){

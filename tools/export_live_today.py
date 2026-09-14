@@ -295,6 +295,25 @@ def active_union_label():
         return None
 
 
+def completed_union_sources(day, current_label):
+    """Keep strategy caches separate; prefer the newest completed source per race."""
+    chosen = {}
+    for source in UNION_SOURCE_DIRS:
+        for path in sorted((day / "union_source_versions" / source).glob("*.json")):
+            row = read_object(path) or {}
+            rid = row.get("race_id")
+            if not rid:
+                continue
+            if source == "union5_v1_1_source_v1" and current_label == "UNION6":
+                receipt = read_object(day / "micro_live/union5_v1_1_dispatch" / (rid + ".json")) or {}
+                # Union6 builds Union5 internally first. Only retain a historical
+                # Union5 row when its own dispatcher actually made a decision.
+                if receipt.get("status") not in {"submitted", "rule_skip", "blocked", "sender_blocked", "error"}:
+                    continue
+            chosen[rid] = path
+    return [chosen[rid] for rid in sorted(chosen)]
+
+
 def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
@@ -321,8 +340,9 @@ def main():
             # The accounting key stays stable across the in-day v1.1 cutover.
             # Merge old pre-cutover artifacts with v1.1 artifacts so today's
             # already settled/live rows do not disappear from the public page.
-            target = day / bets_dir(eng)
             for source in UNION_SOURCE_DIRS:
+                target = day / "union_source_versions" / source
+                target.mkdir(parents=True, exist_ok=True)
                 rsync(f"{SUB}:{REMOTE}/{hd}/{source}/artifacts/", target)
         else:
             rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
@@ -391,7 +411,8 @@ def main():
     races = []
     for eng in engines:
         is_observer = eng in display_only
-        for f in sorted((day / bets_dir(eng)).glob("*.json")):
+        paths = completed_union_sources(day, current_label) if eng in PUBLIC_LIVE_ENGINES else sorted((day / bets_dir(eng)).glob("*.json"))
+        for f in paths:
             try:
                 d = json.load(open(f))
             except json.JSONDecodeError:
@@ -604,7 +625,8 @@ def main():
             ms.stat().st_mtime).strftime("%H:%M")}
     newest = 0.0
     for eng in engines:
-        for f in (day / bets_dir(eng)).glob("*.json"):
+        paths = completed_union_sources(day, current_label) if eng in PUBLIC_LIVE_ENGINES else (day / bets_dir(eng)).glob("*.json")
+        for f in paths:
             newest = max(newest, f.stat().st_mtime)
     if newest:
         sysd["infer_age_min"] = round((time.time() - newest) / 60, 1)

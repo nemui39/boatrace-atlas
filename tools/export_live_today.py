@@ -33,6 +33,7 @@ UNION_DISPATCH_DIRS = (
 )
 # seedavg10(10種平均 family、2026-09-26〜実弾)。束は sub の m1_seedavg_family_shadow_v1/<bundle>/ にあり、
 # live.enabled のある束だけを公開する。出力(outputs)・dispatch受領票・admission(実掛金)を読み取り専用で取る。
+KUMI_ORDER_120 = ["".join(map(str, p)) for p in __import__("itertools").permutations(range(1, 7), 3)]  # = stack2tan.ids.ALL_KUMIS_3TAN
 SEEDAVG_ENGINE = "seedavg10"
 SEEDAVG_LABEL = "SEEDAVG10"
 SEEDAVG_ROOT = "/home/sub/m1_seedavg_family_shadow_v1"
@@ -573,9 +574,14 @@ def main():
                         elif isinstance(v2, float):
                             extra[f"{k}.{k2}"] = round(v2, 4)
             pf, ko = d.get("p_final_120"), d.get("kumi_order_120")
+            p120 = None
             if pf and ko:
                 t5 = [{"k": str(k2).replace("-", ""), "p": round(p2, 4)}
                       for k2, p2 in sorted(zip(ko, pf), key=lambda x: -x[1])[:30]]
+                # 120通り全部(標準の辞書順 123,124,…,654 に並べ直す。画面側で確率順に並べる)
+                by_k = {str(k2).replace("-", ""): float(p2) for k2, p2 in zip(ko, pf)}
+                if len(by_k) == 120:
+                    p120 = [round(by_k.get(k3, 0.0), 6) for k3 in KUMI_ORDER_120]
             else:
                 t5 = [{"k": t["kumi"], "p": round(t["prob"], 4)}
                       for t in d.get("p_final_top5") or []]
@@ -608,6 +614,7 @@ def main():
                     "sg": [round(x, 2) for x in dbg.get("ts_sigma", [])],
                     "wr": [round(x, 3) for x in dbg.get("weather_wr", [])],
                     "t5": t5,
+                    "p120": p120,
                     "med": dbg.get("ev_median_120"), "p90": dbg.get("ev_p90_120"),
                     "nb": dbg.get("n_odds_in_band"),
                     "mev": dbg.get("max_ev"), "mevk": dbg.get("max_ev_kumi"),

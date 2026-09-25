@@ -1847,7 +1847,25 @@ function renderLiveDetail(wid){
       });
       b+="</div>";
     }
-    if(d2.t5&&d2.t5.length){
+    if(d2.p120&&d2.p120.length===120){
+      /* 120通り全部を確率の高い順に。買った券は緑、予定の券は橙の印 */
+      var bought={},plan={};
+      (r.bets||[]).forEach(function(bt){bought[bt.k]=1;});
+      (r.planned_bets||[]).forEach(function(bt){plan[bt.k]=1;});
+      var all=K120.map(function(k,ix){return {k:k,p:d2.p120[ix]};}).sort(function(x,y){return y.p-x.p;});
+      var qmax=all[0].p*100,qcap=Math.max(5,Math.ceil(qmax/5)*5),qg="",qsum=0;
+      for(var qq=5;qq<qcap;qq+=5)qg+='<i style="left:'+(qq/qcap*100).toFixed(1)+'%"></i>';
+      b+='<div class="stmini" style="margin:8px 0 6px">p_final 120通り・確率順 (右端='+qcap+'% ── 縦線=5%刻み / ●緑=購入 ●橙=予定)</div>'+
+        '<div class="bw-wrap" style="max-height:460px;overflow-y:auto"><div class="bw-grid k">'+qg+'</div>';
+      all.forEach(function(t,ri){
+        qsum+=t.p;
+        var mark=bought[t.k]?'<span style="color:#4fe08e">●</span>':(plan[t.k]?'<span style="color:#ffb454">●</span>':'<span style="opacity:0">●</span>');
+        b+='<div class="bw-row"><span class="val" style="width:24px;text-align:right;opacity:.6">'+(ri+1)+'</span>'+mark+kumiChips(t.k)+
+          '<div class="bw-track"><div style="position:absolute;top:2px;bottom:2px;left:0;width:'+(t.p*100/qcap*100).toFixed(2)+'%;background:'+triGrad(t.k,d2.s)+'"></div></div>'+
+          '<span class="val">'+(t.p*100).toFixed(2)+"%</span></div>";
+      });
+      b+="</div>";
+    }else if(d2.t5&&d2.t5.length){
       var pmax=Math.max.apply(null,d2.t5.map(function(t9){return t9.p*100;}));
       var pcap=Math.max(5,Math.ceil(pmax/5)*5);
       var glines="";
@@ -2150,6 +2168,7 @@ function detailLines(id,eng){
 function engOf(id,eng){var f=null;(RB[id]||[]).forEach(function(r){if(r.eng===eng)f=r;});return f;}
 var wlScript={},wlShown={},wlType={};
 var ENGS=["seedavg10"];
+var K120=(function(){var o=[];for(var a=1;a<=6;a++)for(var b2=1;b2<=6;b2++)for(var c=1;c<=6;c++)if(a!==b2&&b2!==c&&a!==c)o.push(""+a+b2+c);return o;})();
 var ENG_SHORT={union3_formal_kl_projection_delta015:"UNION6",seedavg10:"SEEDAVG10"};
 var ENG_COLOR={union3_formal_kl_projection_delta015:"#2fd3b8",seedavg10:"#ffb454"};
 // 未登録エンジンは系統プレフィクスで色/表記を自動登録(t3w6系=橙, condthird系=黄)
@@ -2581,7 +2600,7 @@ document.getElementById("live-feed").addEventListener("click",function(e){
 
 /* ================= boot ================= */
 buildMap();seedInk();resetCamTarget();
-loadLive();setInterval(loadLive,20000);setInterval(schedTick,1000);
+loadLive();setInterval(loadLive,10000);setInterval(schedTick,1000);
 /* typewriter: char-by-char machine-gun typing (3 chars / 30ms), per engine window */
 setInterval(function(){
   var el=document.getElementById("worklog");

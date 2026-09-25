@@ -31,6 +31,11 @@ UNION_DISPATCH_DIRS = (
     "union3_formal_kl_projection_delta015_dispatch", "union3_v1_1_dispatch",
     "union4_v1_1_dispatch", "union5_v1_1_dispatch", "union6_mid50_100_dispatch",
 )
+# seedavg10(10種平均 family、2026-09-26〜実弾)。束は sub の m1_seedavg_family_shadow_v1/<bundle>/ にあり、
+# live.enabled のある束だけを公開する。出力(outputs)・dispatch受領票・admission(実掛金)を読み取り専用で取る。
+SEEDAVG_ENGINE = "seedavg10"
+SEEDAVG_LABEL = "SEEDAVG10"
+SEEDAVG_ROOT = "/home/sub/m1_seedavg_family_shadow_v1"
 
 
 def strategy_label(contract):
@@ -204,6 +209,48 @@ def adapt_union3(d, formal=None, kl015=None):
     return d
 
 
+def adapt_seedavg10(d, admission=None):
+    """seedavg10 の無送信出力(m1_seedavg_family_shadow_v1)を公開表示用(KL型)へ正規化する。
+    判定の確率は p_clip_120(市場で切った family 10種平均)、EV は p × round(odds,1)。
+    実掛金は dispatcher の admission(③＋目標75%)を使い、送信前は予定額として扱う。"""
+    if d.get("contract") != "m1_seedavg_family_shadow_v1":
+        return d
+    sys.path.insert(0, str(STACK / "src"))
+    from stack2tan.ids import ALL_KUMIS_3TAN
+    odds = [round(float(o), 1) for o in d.get("odds_120") or []]
+    prob = d.get("p_clip_120") or []
+    if len(odds) != 120 or len(prob) != 120:
+        return d
+    kumis = list(ALL_KUMIS_3TAN)
+    ev = [float(p) * o for p, o in zip(prob, odds)]
+    d["kumi_order_120"], d["odds_120"], d["p_final_120"], d["ev_120"] = kumis, odds, prob, ev
+    staked = {b["kumi"]: b for b in (admission or {}).get("bets_final") or []}
+    d["bets_final"] = [{"kumi": b["kumi"], "odds": b["odds"], "ev": b["ev"], "p_model": b["p"],
+                        "stake": (staked.get(b["kumi"]) or {}).get("stake") or b.get("flat100_reference_yen")}
+                       for b in d.get("bets_flat100_reference") or []]
+    inv = [1.0 / o if o > 0 else 0.0 for o in odds]
+    tot = sum(inv) or 1.0
+    arms = [a for a in (
+        probability_arm("seedavg10", "10種平均 family", prob, odds, kumis, ev),
+        probability_arm("market", "T-4 市場", [x / tot for x in inv], odds, kumis),
+    ) if a]
+    i0 = max(range(120), key=lambda i: ev[i])
+    sv = sorted(ev)
+    d["debug"] = {"max_ev": round(ev[i0], 4), "max_ev_kumi": kumis[i0], "max_ev_odds": odds[i0],
+                  "ev_median_120": round(sv[60], 4), "ev_p90_120": round(sv[108], 4),
+                  "n_odds_in_band": sum(1 for o in odds if o <= 300),
+                  "max_ev_gate": "seedavg10_no_ticket", "rule": d.get("rule"),
+                  "forward_eligible": bool(d.get("forward_eligible")),
+                  "s_values": [float(x) for x in d.get("win6_p") or []]}
+    if admission:
+        plan = admission.get("plan") or {}
+        d["debug"]["plan"] = {"target": plan.get("target"), "wealth_start": plan.get("wealth_start")}
+    d["_strategy_label"] = SEEDAVG_LABEL
+    d["_union3_arms"] = arms
+    d["_gate_no_ticket"] = "seedavg10_no_ticket"
+    return d
+
+
 def bets_dir(eng):
     return BETS_DIR_ALIAS.get(eng, f"{eng}_bets")
 
@@ -234,7 +281,18 @@ def fetch_result(hd, jcd, rno, cache_dir):
         return None
 
 
-def detect_engines(hd):
+def seedavg_live_bundle():
+    """live.enabled のある seedavg10 束のパス(無ければ None)。中身は読まない。"""
+    try:
+        r = subprocess.run(["ssh", "-o", "ConnectTimeout=6", SUB, f"ls -d {SEEDAVG_ROOT}/*/live.enabled 2>/dev/null"],
+                           capture_output=True, text=True, timeout=12)
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    paths = [line for line in r.stdout.split() if line.endswith("/live.enabled")]
+    return str(Path(paths[-1]).parent) if paths else None
+
+
+def detect_engines(hd, union_live=True, seedavg=None):
     """公開対象の実弾エンジンだけを返す。"""
     r = subprocess.run(
         ["ssh", SUB, f"ls -d {REMOTE}/{hd}/micro_live/*_submissions "
@@ -254,8 +312,13 @@ def detect_engines(hd):
         elif name.endswith("_bets"):
             bets.add(name[:-len("_bets")])
     active = (live | bets) & PUBLIC_LIVE_ENGINES
-    # 当日最初のartifact生成前も、予定表にUnionの待機行を出す。
-    active |= PUBLIC_LIVE_ENGINES
+    # 当日最初のartifact生成前も、予定表にUnionの待機行を出す(Unionが実弾で有効な日だけ)。
+    if union_live:
+        active |= PUBLIC_LIVE_ENGINES
+    else:
+        active -= PUBLIC_LIVE_ENGINES
+    if seedavg:
+        active.add(SEEDAVG_ENGINE)
     display_only = (DISPLAY_ONLY_ENGINES & bets) - active
     return sorted(active | display_only), display_only
 
@@ -318,8 +381,9 @@ def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
     day.mkdir(parents=True, exist_ok=True)
-    engines, display_only = detect_engines(hd)
     current_label = active_union_label()
+    seedavg = seedavg_live_bundle()
+    engines, display_only = detect_engines(hd, union_live=current_label is not None, seedavg=seedavg)
     print("engines:", engines, "display_only:", sorted(display_only))
     rsync(f"{SUB}:{REMOTE}/{hd}/schedule.json", day)
     rsync(f"{SUB}:{REMOTE}/{hd}/morning_status.json", day)
@@ -344,6 +408,12 @@ def main():
                 target = day / "union_source_versions" / source
                 target.mkdir(parents=True, exist_ok=True)
                 rsync(f"{SUB}:{REMOTE}/{hd}/{source}/artifacts/", target)
+        elif eng == SEEDAVG_ENGINE:
+            rsync(f"{SUB}:{seedavg}/outputs/{hd}/", day / bets_dir(eng))
+            for sub_dir, local in (("dispatch", day / "micro_live" / f"{eng}_dispatch"),
+                                   ("admissions", day / f"{eng}_admissions")):
+                local.mkdir(parents=True, exist_ok=True)
+                rsync(f"{SUB}:{seedavg}/live_state/{sub_dir}/{hd}/", local)
         else:
             rsync(f"{SUB}:{REMOTE}/{hd}/{bets_dir(eng)}/", day / bets_dir(eng))
 
@@ -400,8 +470,11 @@ def main():
             if st in ("submitted", "admitted", "already_attempted"):
                 continue
             pre = ("union3_" if eng.startswith("union3_") else
-                   ("fc_" if eng.startswith("family_ens") else "kl_"))
-            if "overlap" in reason or "dedup" in reason:
+                   ("fc_" if eng.startswith("family_ens") else
+                    ("sa10_" if eng == SEEDAVG_ENGINE else "kl_")))
+            if st == "late_skip":
+                blocked.setdefault((eng, rid), pre + "deadline")
+            elif "overlap" in reason or "dedup" in reason:
                 blocked.setdefault((eng, rid), pre + "overlap")
             elif "deadline" in reason or "remaining" in reason:
                 blocked.setdefault((eng, rid), pre + "deadline")
@@ -422,7 +495,10 @@ def main():
                 continue  # 当日以外(朝の試行ログ等)/preflight等の非レースJSONを除外
             formal = read_object(union_components / "formal" / f"{rid}.json")
             kl015 = read_object(union_components / "kl015" / f"{rid}.json")
-            d = adapt_union3(adapt_formal_champion(d), formal, kl015)
+            if eng == SEEDAVG_ENGINE:
+                d = adapt_seedavg10(d, read_object(day / f"{eng}_admissions" / f"{rid}.json"))
+            else:
+                d = adapt_union3(adapt_formal_champion(d), formal, kl015)
             dbg = d.get("debug") or {}
             if not dbg and isinstance(d.get("ev_120"), list) and d.get("kumi_order_120"):
                 # KL型: debug無し。120配列から同等指標を合成
@@ -668,7 +744,8 @@ def main():
         "total": total,
         "sys": sysd,
         "races": races,
-        "engine_labels": {eng: current_label for eng in PUBLIC_LIVE_ENGINES if current_label},
+        "engine_labels": {**{eng: current_label for eng in PUBLIC_LIVE_ENGINES if current_label},
+                          **({SEEDAVG_ENGINE: SEEDAVG_LABEL} if seedavg else {})},
     }
     dst = REPO / "data"
     dst.mkdir(exist_ok=True)

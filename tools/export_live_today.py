@@ -378,6 +378,49 @@ def completed_union_sources(day, current_label):
     return [chosen[rid] for rid in sorted(chosen)]
 
 
+def official_payouts(items):
+    """stack2tan の公式払戻コマンドで払戻を計算する。失敗したら None(呼び出し側が簡易計算に戻す)。"""
+    if not items:
+        return {}
+    req = {"races": [{"race_id": r["id"], "results_dir": str(cache), "bets": [{"k": b["k"], "stake": b["stake"]} for b in r["bets"]]}
+                     for r, cache in items]}
+    try:
+        out = subprocess.run([str(STACK / ".venv/bin/python"), str(STACK / "scripts/v5/official_race_payouts_cli_v1.py")],
+                             input=json.dumps(req), capture_output=True, text=True, timeout=120)
+        return json.loads(out.stdout) if out.returncode == 0 else None
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
+        return None
+
+
+def settle_simple(r, rr, total):
+    """従来の簡易計算(公式コマンドが使えないときだけ)。同着は勝ち番1つだけを見る。"""
+    try:
+        i3 = rr["maindata"]["infolist3t"][0]
+        win = i3["winno"]
+        div = int(re.sub(r"[^0-9]", "", i3.get("dividend") or "") or 0)
+    except (KeyError, IndexError, TypeError):
+        return
+    wk = win.replace("-", "")
+    if not wk.isdigit():
+        r["win"] = win; r["pnl"] = 0; r["prov"] = True; r["cancel"] = True; r["ret"] = sum(b["stake"] for b in r["bets"])
+        return
+    ret = {str(x) for x in (rr["maindata"].get("returnlist") or [])}
+    stake = payout = refunded = 0
+    for b in r["bets"]:
+        if ret and any(c in ret for c in b["k"]):
+            refunded += b["stake"]
+            continue
+        stake += b["stake"]
+        if b["k"] == wk:
+            payout += b["stake"] // 100 * div
+    r["win"] = win; r["pnl"] = payout - stake; r["prov"] = True
+    if refunded:
+        r["ret"] = refunded
+    total["stake"] += stake; total["payout"] += payout; total["pnl"] += payout - stake
+    if payout:
+        total["hits"] += 1
+
+
 def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
@@ -636,11 +679,14 @@ def main():
             races[-1]["detail"]["arms"] = d.get("_union3_arms") or []
             if d.get("_sixth_arm"):
                 races[-1]["detail"]["sixth_arm"] = d["_sixth_arm"]
-    # 暫定精算: 本体settle未反映のBETレースは自前で結果を取得しPnLを仮確定
+    # 暫定精算: 本体settle未反映のBETレースは自前で結果を取得しPnLを仮確定。
+    # 払戻は stack2tan の公式払戻(r9 と同じ解析: 不成立=全額返還、出遅れ・フライング等の返還艇を含む券=元返し、同着=複数の払戻)で計算する
+    # (scripts/v5/official_race_payouts_cli_v1.py = seedavg10 dispatcher の正式精算と同じ関数)。失敗したときだけ従来の簡易計算に戻す
     rescache = day / "results"
     rescache.mkdir(exist_ok=True)
     now = datetime.datetime.now()
     nmin = now.hour * 60 + now.minute
+    due = []
     for r in races:
         if not r["bets"] or r["pnl"] is not None or not r.get("deadline"):
             continue
@@ -651,41 +697,25 @@ def main():
         rr = fetch_result(hd, jcd, rno, rescache)
         if not rr:
             continue
+        due.append((r, rr))
+    official = official_payouts([(r, rescache) for r, _ in due])
+    for r, rr in due:
         try:
-            i3 = rr["maindata"]["infolist3t"][0]
-            win = i3["winno"]
-            div = int(re.sub(r"[^0-9]", "", i3.get("dividend") or "") or 0)
+            win = rr["maindata"]["infolist3t"][0]["winno"]
         except (KeyError, IndexError, TypeError):
+            win = None
+        res = official.get(r["id"]) if official is not None else None
+        if res is not None and not res.get("pending"):
+            stake = sum(b["stake"] for b in r["bets"]); payout = int(res["payout"])
+            r["win"] = win; r["pnl"] = payout - stake; r["prov"] = True; r["official"] = True
+            if win is not None and not win.replace("-", "").isdigit():
+                r["cancel"] = True; r["ret"] = stake
+            total["stake"] += stake; total["payout"] += payout; total["pnl"] += payout - stake
+            if res.get("hits"): total["hits"] += 1
             continue
-        wk = win.replace("-", "")
-        if not wk.isdigit():
-            # レース中止/不成立: 全買い目が元返し(収支0)
-            r["win"] = win
-            r["pnl"] = 0
-            r["prov"] = True
-            r["cancel"] = True
-            r["ret"] = sum(b["stake"] for b in r["bets"])
-            continue
-        # フライング等の返還艇: その艇を含む買い目は掛金払い戻し(収支0)
-        ret = {str(x) for x in (rr["maindata"].get("returnlist") or [])}
-        stake = payout = refunded = 0
-        for b in r["bets"]:
-            if ret and any(c in ret for c in b["k"]):
-                refunded += b["stake"]
-                continue
-            stake += b["stake"]
-            if b["k"] == wk:
-                payout += b["stake"] // 100 * div
-        r["win"] = win
-        r["pnl"] = payout - stake
-        r["prov"] = True
-        if refunded:
-            r["ret"] = refunded
-        total["stake"] += stake
-        total["payout"] += payout
-        total["pnl"] += payout - stake
-        if payout:
-            total["hits"] += 1
+        if official is not None:
+            continue  # 公式の解析で結果がまだ読めない=未確定のまま
+        settle_simple(r, rr, total)
 
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
 

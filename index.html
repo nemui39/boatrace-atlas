@@ -1848,27 +1848,7 @@ function renderLiveDetail(wid){
       b+="</div>";
     }
     if(d2.p120&&d2.p120.length===120){
-      /* 120通り全部を確率の高い順に。買った券は緑、予定の券は橙の印 */
-      var bought={},plan={};
-      (r.bets||[]).forEach(function(bt){bought[bt.k]=1;});
-      (r.planned_bets||[]).forEach(function(bt){plan[bt.k]=1;});
-      var hasM=d2.m120&&d2.m120.length===120;
-      var all=K120.map(function(k,ix){return {k:k,p:d2.p120[ix],m:hasM?d2.m120[ix]:null};}).sort(function(x,y){return y.p-x.p;});
-      var qmax=Math.max(all[0].p,hasM?Math.max.apply(null,d2.m120):0)*100,qcap=Math.max(5,Math.ceil(qmax/5)*5),qg="",qsum=0;
-      for(var qq=5;qq<qcap;qq+=5)qg+='<i style="left:'+(qq/qcap*100).toFixed(1)+'%"></i>';
-      b+='<div class="stmini" style="margin:8px 0 6px">p_final 120通り・確率順 ── 上=モデル / 下=市場の出現率(T-4オッズ) (右端='+qcap+'% ── 縦線=5%刻み / ●緑=購入 ●橙=予定)</div>'+
-        '<div class="bw-wrap" style="max-height:460px;overflow-y:auto"><div class="bw-grid k">'+qg+'</div>';
-      all.forEach(function(t,ri){
-        qsum+=t.p;
-        var mark=bought[t.k]?'<span style="color:#4fe08e">●</span>':(plan[t.k]?'<span style="color:#ffb454">●</span>':'<span style="opacity:0">●</span>');
-        b+='<div class="bw-row"><span class="val" style="width:24px;text-align:right;opacity:.6">'+(ri+1)+'</span>'+mark+kumiChips(t.k)+
-          '<div class="bw-track">'+
-            '<div style="position:absolute;top:2px;height:'+(t.m!=null?'45%':'calc(100% - 4px)')+';left:0;width:'+(t.p*100/qcap*100).toFixed(2)+'%;background:'+triGrad(t.k,d2.s)+'"></div>'+
-            (t.m!=null?'<div title="市場の出現率" style="position:absolute;bottom:2px;height:35%;left:0;width:'+(t.m*100/qcap*100).toFixed(2)+'%;background:#8a96a8;opacity:.75"></div>':'')+
-          '</div>'+
-          '<span class="val" style="min-width:92px">'+(t.p*100).toFixed(2)+'%'+(t.m!=null?'<span style="color:'+(t.p>t.m?'#4fe08e':'#8a96a8')+'"> / '+(t.m*100).toFixed(2)+'%</span>':'')+"</span></div>";
-      });
-      b+="</div>";
+      b+=p120Block(r,d2);
     }else if(d2.t5&&d2.t5.length){
       var pmax=Math.max.apply(null,d2.t5.map(function(t9){return t9.p*100;}));
       var pcap=Math.max(5,Math.ceil(pmax/5)*5);
@@ -1884,7 +1864,7 @@ function renderLiveDetail(wid){
       });
       b+="</div>";
     }
-    if(d2.arms&&d2.arms.length){
+    if(d2.arms&&d2.arms.length&&!(d2.p120&&d2.p120.length===120)){
       d2.arms.forEach(function(arm){
         var atop=arm.top||[],amx=arm.max||{};
         var acol={formal:"#2fd3b8",kl015:"#b57cff",projection015:"#ffb454",a4kl:"#5cd6ff",r1pt:"#ff91bb"}[arm.key]||"#5cd6ff";
@@ -2172,6 +2152,72 @@ function detailLines(id,eng){
 function engOf(id,eng){var f=null;(RB[id]||[]).forEach(function(r){if(r.eng===eng)f=r;});return f;}
 var wlScript={},wlShown={},wlType={};
 var ENGS=["seedavg10"];
+/* p_final 120通り: 並べ替え(EV/推論/市場 × 昇順・降順)と絞り込み(1着N / 1着N-2着M)。状態は画面全体で共通 */
+var P120={sort:"p_desc",f1:0,f2:0,data:{}};
+var P120_SORTS=[["ev_desc","EV↓"],["ev_asc","EV↑"],["p_desc","推論↓"],["p_asc","推論↑"],["m_desc","市場↓"],["m_asc","市場↑"]];
+function p120Key(r){return String(r.id+"_"+r.eng).replace(/[^A-Za-z0-9_]/g,"_");}
+function p120Controls(){
+  var h='<div class="p120-ctl" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;font-family:ui-monospace,Consolas,monospace;font-size:10px">';
+  P120_SORTS.forEach(function(x){
+    var on=P120.sort===x[0];
+    h+='<button onclick="p120Set(\'sort\',\''+x[0]+'\')" style="cursor:pointer;padding:2px 7px;border:1px solid '+(on?'#ffb454':'rgba(92,214,255,.3)')+';background:'+(on?'rgba(255,180,84,.15)':'transparent')+';color:'+(on?'#ffb454':'var(--ink)')+';font:inherit">'+x[1]+'</button>';
+  });
+  function sel(f,lab){
+    var v=P120[f],o='<label style="margin-left:6px">'+lab+' <select onchange="p120Set(\''+f+'\',+this.value)" style="background:#0a141f;color:var(--ink);border:1px solid rgba(92,214,255,.3);font:inherit">';
+    o+='<option value="0"'+(v===0?' selected':'')+'>全</option>';
+    for(var n=1;n<=6;n++)o+='<option value="'+n+'"'+(v===n?' selected':'')+'>'+n+'</option>';
+    return o+'</select></label>';
+  }
+  return h+sel("f1","1着")+sel("f2","2着")+'</div>';
+}
+function p120Block(r,d2){
+  var key=p120Key(r),bought={},plan={};
+  (r.bets||[]).forEach(function(bt){bought[bt.k]=1;});
+  (r.planned_bets||[]).forEach(function(bt){plan[bt.k]=1;});
+  var hasM=d2.m120&&d2.m120.length===120,hasO=d2.o120&&d2.o120.length===120;
+  var rows=K120.map(function(k,ix){
+    var p=d2.p120[ix],o=hasO?d2.o120[ix]:null;
+    return {k:k,p:p,m:hasM?d2.m120[ix]:null,o:o,ev:(o!=null?p*o:null),b:bought[k]?1:(plan[k]?2:0)};
+  });
+  var qmax=0;rows.forEach(function(t){qmax=Math.max(qmax,t.p,t.m||0);});
+  var qcap=Math.max(5,Math.ceil(qmax*100/5)*5);
+  P120.data[key]={rows:rows,qcap:qcap,s:d2.s};
+  return '<div class="stmini" style="margin:8px 0 6px">p_final 120通り ── 上=モデル / 下=市場の出現率(T-4オッズ) (右端='+qcap+'% ── 縦線=5%刻み / ●緑=購入 ●橙=予定)</div>'+
+    '<div id="p120c-'+key+'">'+p120Controls()+'</div>'+
+    '<div id="p120-'+key+'" class="bw-wrap" style="max-height:80vh;overflow-y:auto">'+p120List(key)+'</div>';
+}
+function p120List(key){
+  var D=P120.data[key];if(!D)return "";
+  var qcap=D.qcap,qg="";
+  for(var qq=5;qq<qcap;qq+=5)qg+='<i style="left:'+(qq/qcap*100).toFixed(1)+'%"></i>';
+  var f=D.rows.filter(function(t){return (!P120.f1||t.k.charAt(0)===String(P120.f1))&&(!P120.f2||t.k.charAt(1)===String(P120.f2));});
+  var fld=P120.sort.split("_")[0],dir=P120.sort.split("_")[1]==="asc"?1:-1;
+  f.sort(function(x,y){
+    var a=x[fld],c=y[fld];
+    if(a==null&&c==null)return 0;if(a==null)return 1;if(c==null)return -1;
+    return dir*(a-c);
+  });
+  var h='<div class="dl" style="margin:0 0 6px;opacity:.7">'+f.length+'通り'+(P120.f1?' / 1着 '+P120.f1:'')+(P120.f2?' / 2着 '+P120.f2:'')+'</div><div class="bw-grid k" style="left:108px;right:190px">'+qg+'</div>';
+  f.forEach(function(t,ri){
+    var mark=t.b===1?'<span style="color:#4fe08e">●</span>':(t.b===2?'<span style="color:#ffb454">●</span>':'<span style="opacity:0">●</span>');
+    h+='<div class="bw-row"><span class="val" style="width:24px;text-align:right;opacity:.6">'+(ri+1)+'</span>'+mark+kumiChips(t.k)+
+      '<div class="bw-track">'+
+        '<div style="position:absolute;top:2px;height:'+(t.m!=null?'45%':'calc(100% - 4px)')+';left:0;width:'+(t.p*100/qcap*100).toFixed(2)+'%;background:'+triGrad(t.k,D.s)+'"></div>'+
+        (t.m!=null?'<div title="市場の出現率" style="position:absolute;bottom:2px;height:35%;left:0;width:'+(t.m*100/qcap*100).toFixed(2)+'%;background:#8a96a8;opacity:.75"></div>':'')+
+      '</div>'+
+      '<span class="val" style="width:96px">'+(t.p*100).toFixed(2)+'%'+(t.m!=null?'<span style="color:'+(t.p>t.m?'#4fe08e':'#8a96a8')+'"> / '+(t.m*100).toFixed(2)+'%</span>':'')+'</span>'+
+      '<span class="val" style="width:84px;color:'+(t.ev!=null&&t.ev>=1.1?'#ffb454':'var(--ink)')+'">'+(t.ev!=null?'EV '+t.ev.toFixed(2):'')+(t.o!=null?' <span style="opacity:.6">'+t.o+'倍</span>':'')+'</span></div>';
+  });
+  return h;
+}
+function p120Set(f,v){
+  P120[f]=v;
+  Object.keys(P120.data).forEach(function(key){
+    var el=document.getElementById("p120-"+key),ct=document.getElementById("p120c-"+key);
+    if(el)el.innerHTML=p120List(key);
+    if(ct)ct.innerHTML=p120Controls();
+  });
+}
 var K120=(function(){var o=[];for(var a=1;a<=6;a++)for(var b2=1;b2<=6;b2++)for(var c=1;c<=6;c++)if(a!==b2&&b2!==c&&a!==c)o.push(""+a+b2+c);return o;})();
 var ENG_SHORT={union3_formal_kl_projection_delta015:"UNION6",seedavg10:"SEEDAVG10"};
 var ENG_COLOR={union3_formal_kl_projection_delta015:"#2fd3b8",seedavg10:"#ffb454"};

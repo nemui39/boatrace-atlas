@@ -589,6 +589,10 @@ def main():
                 inv = {str(k2).replace("-", ""): (1.0 / float(o2) if o2 and float(o2) > 0 else 0.0) for k2, o2 in zip(ko, od)}
                 tot = sum(inv.values()) or 1.0
                 m120 = [round(inv.get(k3, 0.0) / tot, 6) for k3 in KUMI_ORDER_120]
+            o120 = None
+            if p120 and ko and isinstance(od, list) and len(od) == 120:
+                by_o = {str(k2).replace("-", ""): round(float(o2), 1) for k2, o2 in zip(ko, od) if o2 is not None}
+                o120 = [by_o.get(k3) for k3 in KUMI_ORDER_120]
             else:
                 t5 = [{"k": t["kumi"], "p": round(t["prob"], 4)}
                       for t in d.get("p_final_top5") or []]
@@ -623,6 +627,7 @@ def main():
                     "t5": t5,
                     "p120": p120,
                     "m120": m120,
+                    "o120": o120,
                     "med": dbg.get("ev_median_120"), "p90": dbg.get("ev_p90_120"),
                     "nb": dbg.get("n_odds_in_band"),
                     "mev": dbg.get("max_ev"), "mevk": dbg.get("max_ev_kumi"),

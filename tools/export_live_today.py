@@ -582,6 +582,13 @@ def main():
                 by_k = {str(k2).replace("-", ""): float(p2) for k2, p2 in zip(ko, pf)}
                 if len(by_k) == 120:
                     p120 = [round(by_k.get(k3, 0.0), 6) for k3 in KUMI_ORDER_120]
+            # 市場の出現率(T-4オッズの逆数を正規化)。p120 と同じ並び
+            m120 = None
+            od = d.get("odds_120")
+            if p120 and ko and isinstance(od, list) and len(od) == 120:
+                inv = {str(k2).replace("-", ""): (1.0 / float(o2) if o2 and float(o2) > 0 else 0.0) for k2, o2 in zip(ko, od)}
+                tot = sum(inv.values()) or 1.0
+                m120 = [round(inv.get(k3, 0.0) / tot, 6) for k3 in KUMI_ORDER_120]
             else:
                 t5 = [{"k": t["kumi"], "p": round(t["prob"], 4)}
                       for t in d.get("p_final_top5") or []]
@@ -615,6 +622,7 @@ def main():
                     "wr": [round(x, 3) for x in dbg.get("weather_wr", [])],
                     "t5": t5,
                     "p120": p120,
+                    "m120": m120,
                     "med": dbg.get("ev_median_120"), "p90": dbg.get("ev_p90_120"),
                     "nb": dbg.get("n_odds_in_band"),
                     "mev": dbg.get("max_ev"), "mevk": dbg.get("max_ev_kumi"),

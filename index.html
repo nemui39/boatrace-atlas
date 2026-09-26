@@ -2168,7 +2168,7 @@ function p120Controls(){
     for(var n=1;n<=6;n++)o+='<option value="'+n+'"'+(v===n?' selected':'')+'>'+n+'</option>';
     return o+'</select></label>';
   }
-  return h+sel("f1","1着")+sel("f2","2着")+'</div>';
+  return h+sel("f1","1着")+sel("f2","2着")+'<span style="opacity:.6;margin-left:6px">(1着だけ・2着だけでも絞り込み可)</span></div>';
 }
 function p120Block(r,d2){
   var key=p120Key(r),bought={},plan={};
@@ -2197,7 +2197,7 @@ function p120List(key){
     if(a==null&&c==null)return 0;if(a==null)return 1;if(c==null)return -1;
     return dir*(a-c);
   });
-  var h='<div class="dl" style="margin:0 0 6px;opacity:.7">'+f.length+'通り'+(P120.f1?' / 1着 '+P120.f1:'')+(P120.f2?' / 2着 '+P120.f2:'')+'</div><div class="bw-grid k" style="left:108px;right:190px">'+qg+'</div>';
+  var h='<div class="dl" style="margin:0 0 6px;opacity:.7">'+f.length+'通り'+(P120.f1?' / 1着 '+P120.f1:'')+(P120.f2?' / 2着 '+P120.f2:'')+'</div><div class="bw-grid k" style="left:108px;right:236px">'+qg+'</div>';
   f.forEach(function(t,ri){
     var mark=t.b===1?'<span style="color:#4fe08e">●</span>':(t.b===2?'<span style="color:#ffb454">●</span>':'<span style="opacity:0">●</span>');
     h+='<div class="bw-row"><span class="val" style="width:24px;text-align:right;opacity:.6">'+(ri+1)+'</span>'+mark+kumiChips(t.k)+
@@ -2205,11 +2205,12 @@ function p120List(key){
         '<div style="position:absolute;top:2px;height:'+(t.m!=null?'45%':'calc(100% - 4px)')+';left:0;width:'+(t.p*100/qcap*100).toFixed(2)+'%;background:'+triGrad(t.k,D.s)+'"></div>'+
         (t.m!=null?'<div title="市場の出現率" style="position:absolute;bottom:2px;height:35%;left:0;width:'+(t.m*100/qcap*100).toFixed(2)+'%;background:#8a96a8;opacity:.75"></div>':'')+
       '</div>'+
-      '<span class="val" style="width:96px">'+(t.p*100).toFixed(2)+'%'+(t.m!=null?'<span style="color:'+(t.p>t.m?'#4fe08e':'#8a96a8')+'"> / '+(t.m*100).toFixed(2)+'%</span>':'')+'</span>'+
-      '<span class="val" style="width:84px;color:'+(t.ev!=null&&t.ev>=1.1?'#ffb454':'var(--ink)')+'">'+(t.ev!=null?'EV '+t.ev.toFixed(2):'')+(t.o!=null?' <span style="opacity:.6">'+t.o+'倍</span>':'')+'</span></div>';
+      '<span class="val" style="width:112px;white-space:nowrap;font-size:10px">'+(t.p*100).toFixed(2)+'%'+(t.m!=null?'<span style="color:'+(t.p>t.m?'#4fe08e':'#8a96a8')+'"> / '+(t.m*100).toFixed(2)+'%</span>':'')+'</span>'+
+      '<span class="val" style="width:104px;white-space:nowrap;font-size:10px;color:'+(t.ev!=null&&t.ev>=1.1?'#ffb454':'var(--ink)')+'">'+(t.ev!=null?'EV '+t.ev.toFixed(2):'')+(t.o!=null?' <span style="opacity:.6">'+t.o+'倍</span>':'')+'</span></div>';
   });
   return h;
 }
+window.p120Set=p120Set;  /* スクリプト全体が即時関数の中なので、ボタン・選択の onclick/onchange から呼べるよう公開する */
 function p120Set(f,v){
   P120[f]=v;
   Object.keys(P120.data).forEach(function(key){

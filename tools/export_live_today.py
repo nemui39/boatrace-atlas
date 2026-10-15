@@ -36,6 +36,9 @@ UNION_DISPATCH_DIRS = (
 KUMI_ORDER_120 = ["".join(map(str, p)) for p in __import__("itertools").permutations(range(1, 7), 3)]  # = stack2tan.ids.ALL_KUMIS_3TAN
 SEEDAVG_ENGINE = "seedavg10"
 SEEDAVG_LABEL = "SEEDAVG10"
+# 10/16〜: 同じ束で 3 系統合算・予測価格の掛金(v3)。有効化ファイルの名前で判定し、内訳は公開しない。
+SEEDAVG_ENABLE_FILES = {"live.enabled": "SEEDAVG10", "live_a_i30.enabled": "LIVE v2",
+                        "live_a_i30_predprice.enabled": "LIVE v3"}
 SEEDAVG_ROOT = "/home/sub/m1_seedavg_family_shadow_v1"
 
 
@@ -226,9 +229,14 @@ def adapt_seedavg10(d, admission=None):
     ev = [float(p) * o for p, o in zip(prob, odds)]
     d["kumi_order_120"], d["odds_120"], d["p_final_120"], d["ev_120"] = kumis, odds, prob, ev
     staked = {b["kumi"]: b for b in (admission or {}).get("bets_final") or []}
-    d["bets_final"] = [{"kumi": b["kumi"], "odds": b["odds"], "ev": b["ev"], "p_model": b["p"],
-                        "stake": (staked.get(b["kumi"]) or {}).get("stake") or b.get("flat100_reference_yen")}
-                       for b in d.get("bets_flat100_reference") or []]
+    if str((admission or {}).get("contract", "")).startswith("live_a_i30"):
+        # v2/v3 は現行以外の券も含むので admission の券を正にする(系統の内訳は出さない)
+        d["bets_final"] = [{"kumi": b["kumi"], "odds": b["odds"], "ev": b["ev"], "p_model": b["p_model"],
+                            "stake": b["stake"]} for b in admission["bets_final"]]
+    else:
+        d["bets_final"] = [{"kumi": b["kumi"], "odds": b["odds"], "ev": b["ev"], "p_model": b["p"],
+                            "stake": (staked.get(b["kumi"]) or {}).get("stake") or b.get("flat100_reference_yen")}
+                           for b in d.get("bets_flat100_reference") or []]
     inv = [1.0 / o if o > 0 else 0.0 for o in odds]
     tot = sum(inv) or 1.0
     arms = [a for a in (
@@ -283,14 +291,19 @@ def fetch_result(hd, jcd, rno, cache_dir):
 
 
 def seedavg_live_bundle():
-    """live.enabled のある seedavg10 束のパス(無ければ None)。中身は読まない。"""
+    """有効化ファイル(SEEDAVG_ENABLE_FILES)のある束のパス(無ければ None)。中身は読まない。表示名も合わせる。"""
+    global SEEDAVG_LABEL
+    names = " ".join(f"{SEEDAVG_ROOT}/*/{n}" for n in SEEDAVG_ENABLE_FILES)
     try:
-        r = subprocess.run(["ssh", "-o", "ConnectTimeout=6", SUB, f"ls -d {SEEDAVG_ROOT}/*/live.enabled 2>/dev/null"],
+        r = subprocess.run(["ssh", "-o", "ConnectTimeout=6", SUB, f"ls -d {names} 2>/dev/null"],
                            capture_output=True, text=True, timeout=12)
     except (subprocess.TimeoutExpired, OSError):
         return None
-    paths = [line for line in r.stdout.split() if line.endswith("/live.enabled")]
-    return str(Path(paths[-1]).parent) if paths else None
+    paths = [line for line in r.stdout.split() if Path(line).name in SEEDAVG_ENABLE_FILES]
+    if not paths:
+        return None
+    SEEDAVG_LABEL = SEEDAVG_ENABLE_FILES[Path(paths[-1]).name]
+    return str(Path(paths[-1]).parent)
 
 
 def detect_engines(hd, union_live=True, seedavg=None):

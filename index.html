@@ -2152,9 +2152,9 @@ function detailLines(id,eng){
 function engOf(id,eng){var f=null;(RB[id]||[]).forEach(function(r){if(r.eng===eng)f=r;});return f;}
 var wlScript={},wlShown={},wlType={};
 var ENGS=["seedavg10"];
-/* p_final 120通り: 並べ替え(EV/推論/市場 × 昇順・降順)と絞り込み(1着N / 1着N-2着M)。状態は画面全体で共通 */
+/* p_final 120通り: 並べ替え(EV/推論/市場/組番 × 昇順・降順。組番↑=123→654)と絞り込み(1着N / 1着N-2着M)。状態は画面全体で共通 */
 var P120={sort:"p_desc",f1:0,f2:0,data:{}};
-var P120_SORTS=[["ev_desc","EV↓"],["ev_asc","EV↑"],["p_desc","推論↓"],["p_asc","推論↑"],["m_desc","市場↓"],["m_asc","市場↑"]];
+var P120_SORTS=[["ev_desc","EV↓"],["ev_asc","EV↑"],["p_desc","推論↓"],["p_asc","推論↑"],["m_desc","市場↓"],["m_asc","市場↑"],["ix_asc","組番↑"],["ix_desc","組番↓"]];
 function p120Key(r){return String(r.id+"_"+r.eng).replace(/[^A-Za-z0-9_]/g,"_");}
 function p120Controls(){
   var h='<div class="p120-ctl" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;font-family:ui-monospace,Consolas,monospace;font-size:10px">';
@@ -2177,7 +2177,7 @@ function p120Block(r,d2){
   var hasM=d2.m120&&d2.m120.length===120,hasO=d2.o120&&d2.o120.length===120;
   var rows=K120.map(function(k,ix){
     var p=d2.p120[ix],o=hasO?d2.o120[ix]:null;
-    return {k:k,p:p,m:hasM?d2.m120[ix]:null,o:o,ev:(o!=null?p*o:null),b:bought[k]?1:(plan[k]?2:0)};
+    return {k:k,ix:ix,p:p,m:hasM?d2.m120[ix]:null,o:o,ev:(o!=null?p*o:null),b:bought[k]?1:(plan[k]?2:0)};
   });
   var qmax=0;rows.forEach(function(t){qmax=Math.max(qmax,t.p,t.m||0);});
   var qcap=Math.max(5,Math.ceil(qmax*100/5)*5);

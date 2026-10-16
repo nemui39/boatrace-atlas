@@ -38,7 +38,7 @@ SEEDAVG_ENGINE = "seedavg10"
 SEEDAVG_LABEL = "SEEDAVG10"
 # 10/16〜: 同じ束で 3 系統合算・予測価格の掛金(v3)。有効化ファイルの名前で判定し、内訳は公開しない。
 SEEDAVG_ENABLE_FILES = {"live.enabled": "SEEDAVG10", "live_a_i30.enabled": "LIVE v2",
-                        "live_a_i30_predprice.enabled": "LIVE v3"}
+                        "live_a_i30_predprice.enabled": "LIVE v3", "live_a_i30_predprice_refill.enabled": "LIVE v4"}
 SEEDAVG_ROOT = "/home/sub/m1_seedavg_family_shadow_v1"
 
 

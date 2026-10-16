@@ -804,6 +804,7 @@ def main():
         "schedule": schedule,
         "n_processed": len({r["id"] for r in races}),
         "n_bet_races": len({r["id"] for r in races if r["bets"]}),
+        "n_bet_tickets": sum(len(r["bets"]) for r in races if not r.get("obs")),  # 買った券の合計(レース数とは別)
         "total": total,
         "sys": sysd,
         "races": races,

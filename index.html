@@ -1932,10 +1932,10 @@ function renderEngStats(d){
   var by={};
   (d.races||[]).forEach(function(r){
     if(r.obs)return; // 観測専用エンジンは成績台帳へ載せない
-    var e=by[r.eng]||(by[r.eng]={n:0,b:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false});
+    var e=by[r.eng]||(by[r.eng]={n:0,b:0,tk:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false});
     e.n++;
     if(r.bets.length){
-      e.b++;
+      e.b++;e.tk+=r.bets.length;
       var st=r.bets.reduce(function(a2,x){return a2+(x.stake||0);},0);
       e.stake+=st;
       if(r.pnl!=null){e.res++;e.pnl+=r.pnl;e.resStake+=st;if(r.pnl+st>0)e.hits++;if(r.prov)e.prov=true;}
@@ -1946,7 +1946,8 @@ function renderEngStats(d){
     return '<div class="lg-blk'+(strong?" total":"")+'">'+
       '<div class="lg-name" style="color:'+col+'">'+name+"</div>"+
       '<div class="lg-grid">'+
-      "<span>BET</span><b>"+e.b+"/"+e.n+" ("+(e.n?(e.b/e.n*100).toFixed(0):"0")+"%)</b>"+
+      "<span>BET</span><b>"+e.b+"/"+e.n+"R ("+(e.n?(e.b/e.n*100).toFixed(0):"0")+"%)</b>"+
+      "<span>券</span><b>"+(e.tk||0)+"</b>"+
       "<span>賭金</span><b>¥"+e.stake.toLocaleString("ja-JP")+"</b>"+
       "<span>HIT</span><b>"+e.hits+"/"+e.res+(e.res?" ("+(e.hits/e.res*100).toFixed(1)+"%)":"")+"</b>"+
       '<span>P/L</span><b class="'+(e.pnl>0?"g":(e.pnl<0?"r":""))+'">'+(e.prov?"≈":"")+(e.pnl>=0?"+":"")+e.pnl.toLocaleString("ja-JP")+"円</b>"+
@@ -1960,19 +1961,19 @@ function renderEngStats(d){
   var byId={};
   (d.races||[]).forEach(function(r){
     if(r.obs)return;
-    var o=byId[r.id]||(byId[r.id]={bet:false,stake:0,resStake:0,pnl:0,res:false,hit:false,prov:false});
+    var o=byId[r.id]||(byId[r.id]={bet:false,tk:0,stake:0,resStake:0,pnl:0,res:false,hit:false,prov:false});
     if(r.bets.length){
-      o.bet=true;
+      o.bet=true;o.tk+=r.bets.length;
       var st2=r.bets.reduce(function(a2,x){return a2+(x.stake||0);},0);
       o.stake+=st2;
       if(r.pnl!=null){o.res=true;o.resStake+=st2;o.pnl+=r.pnl;if(r.pnl+st2>0)o.hit=true;if(r.prov)o.prov=true;}
     }
   });
-  var T={n:0,b:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false};
+  var T={n:0,b:0,tk:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false};
   Object.keys(byId).forEach(function(id2){
     var o=byId[id2];
     T.n++;
-    if(o.bet){T.b++;T.stake+=o.stake;}
+    if(o.bet){T.b++;T.tk+=o.tk;T.stake+=o.stake;}
     if(o.res){T.res++;T.resStake+=o.resStake;T.pnl+=o.pnl;if(o.hit)T.hits++;if(o.prov)T.prov=true;}
   });
   if(Object.keys(by).length>1)t.push(block("TOTAL",T,"#e05252",true));
@@ -2058,14 +2059,14 @@ function loadLive(){
     badge.innerHTML='<span class="lb-dot"></span>LIVE '+d.date.slice(4,6)+"/"+d.date.slice(6);
     badge.className="lb on";
     document.getElementById("live-sum").textContent=
-      d.n_processed+"/"+d.n_scheduled+" races \u2500 bet "+d.n_bet_races+
+      d.n_processed+"/"+d.n_scheduled+" races \u2500 bet "+d.n_bet_races+"R"+(d.n_bet_tickets!=null?" / "+d.n_bet_tickets+"\u5238":"")+
       " \u2500 PnL "+(d.total.pnl>=0?"+":"")+d.total.pnl.toLocaleString("ja-JP")+
       "\u5186 \u2500 upd "+d.generated_at.slice(11,16);
     var hp=document.getElementById("hud-pnl");
     var anyProv=(d.races||[]).some(function(r){return r.prov;});
     hp.textContent=(anyProv?"\u2248":"")+(d.total.pnl>=0?"+":"\u2212")+Math.abs(d.total.pnl).toLocaleString("ja-JP")+"\u5186";
     hp.className="val "+(d.total.pnl>0?"g":(d.total.pnl<0?"r":""));
-    document.getElementById("hud-races").textContent=d.n_processed+"/"+d.n_scheduled+" R \u2500 BET "+d.n_bet_races;
+    document.getElementById("hud-races").textContent=d.n_processed+"/"+d.n_scheduled+" R \u2500 BET "+d.n_bet_races+"R"+(d.n_bet_tickets!=null?" / "+d.n_bet_tickets+"\u5238":"");
     renderSys(d);
     renderEngStats(d);
     renderSlump(d);

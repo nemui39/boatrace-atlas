@@ -10,6 +10,7 @@ REPO = Path(__file__).resolve().parent.parent
 ROUTES = {
     "/": (REPO / "index.html", "text/html; charset=utf-8", "no-cache"),
     "/index.html": (REPO / "index.html", "text/html; charset=utf-8", "no-cache"),
+    "/desktop.html": (REPO / "desktop.html", "text/html; charset=utf-8", "no-cache"),
     "/data/live_today.json": (
         REPO / "data/live_today.json",
         "application/json; charset=utf-8",

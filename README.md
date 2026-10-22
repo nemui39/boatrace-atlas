@@ -25,6 +25,16 @@
 
 艇ごとのTrueSkill、強度スコア、気象補正、3連単確率、EV分布など、推論artifactに記録された実数値を表示します。`p_final` は1着→2着→3着の艇色を使った3分割バーで、各帯幅は艇ごとの強度比を表します。
 
+### Responsive mobile monitor
+
+幅900px未満では、概要・レース一覧・収支のスマホ表示に切り替わります。900px以上では既存の地図画面を `desktop.html` から読み込みます。片方を表示している間は、もう片方のデータ取得・描画を止めます。
+
+レース詳細から公式BOATCASTの現在のライブ映像を読み込めます。詳細に選んだ過去レースのリプレイではありません。動画はタップしたときだけ読み込み、閉じるとiframeを破棄します。
+
+スマホのレース詳細でも3連単120通りを省略せず表示し、EV・推論確率・市場確率・組番の昇降順と1着／2着の艇番で絞り込めます。EVはPC版と同じ推論確率 × T−4オッズです。120通りの原データがない場合は不足を明記し、取得できた全件を表示します。
+
+スマホ表示には保存した見本データを入れず、公開JSONだけを表示します。初回の取得失敗はエラーと再取得ボタン、更新失敗は直前の集計と警告、集計時刻が5分以上古い場合は更新停止を表示します。購入確認待ちの候補は購入済みに数えません。購入額・払戻・損益は精算分の集計です。
+
 ### Interactive map and telemetry
 
 Natural Earth由来の海岸線から作った日本地図に24場を配置。Canvas上でstable-fluids系の流体表現、ビーコン、圧力場・速度場のENGINE VIEW、fpsテレメトリを描画します。
@@ -95,11 +105,12 @@ sub:/home/sub/stack2tan/data/live/<YYYYMMDD>
 
 ## Public boundary
 
-外部HTTP originはloopbackだけで待ち受け、次の3パスだけを返します。
+外部HTTP originはloopbackだけで待ち受け、次の4パスだけを返します。
 
 ```text
 /
 /index.html
+/desktop.html
 /data/live_today.json
 ```
 
@@ -109,7 +120,8 @@ sub:/home/sub/stack2tan/data/live/<YYYYMMDD>
 
 ```text
 .
-├── index.html                       # Single-page UI
+├── index.html                       # Responsive mobile UI / desktop switch
+├── desktop.html                     # Existing desktop map and telemetry
 ├── data/
 │   └── live_today.json              # Generated, gitignored
 ├── tools/
@@ -136,7 +148,7 @@ python3 tools/serve_public.py
 
 ブラウザで [http://127.0.0.1:8000](http://127.0.0.1:8000) を開きます。
 
-`data/live_today.json` がない環境ではライブフィードは表示されませんが、実ログから埋め込んだSHOWCASEと地図・Canvas表現は確認できます。ライブ同期には、このプロジェクト固有のSSHホストとprivate runtimeが別途必要です。
+`data/live_today.json` がない環境ではスマホ表示に取得エラーが出ます。PC表示では実ログから埋め込んだSHOWCASEと地図・Canvas表現は確認できます。ライブ同期には、このプロジェクト固有のSSHホストとprivate runtimeが別途必要です。
 
 ### Install the origin as a user service
 

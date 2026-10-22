@@ -434,6 +434,36 @@ def settle_simple(r, rr, total):
         total["hits"] += 1
 
 
+
+def missing_race_rows(races, sched, day, engines, receipts, now):
+    """Retain passed deadlines without inventing predictions, purchases or P&L."""
+    if SEEDAVG_ENGINE not in engines:
+        return []
+    seen = {r['id'] for r in races if r['eng'] == SEEDAVG_ENGINE}
+    added = []
+    for rid, sc in sched.items():
+        if rid in seen or (SEEDAVG_ENGINE, rid) in receipts:
+            continue
+        try:
+            deadline = datetime.datetime.strptime(sc['hd'] + ' ' + sc['deadline'], '%Y%m%d %H:%M')
+        except (KeyError, TypeError, ValueError):
+            continue
+        if now < deadline:
+            continue
+        bi = read_object(day / 'beforeinfo_status' / f"venue_{sc['jcd']}_race_{int(sc['rno']):02d}_beforeinfo.json") or {}
+        key = (bi.get('dataheader') or {}).get('datakey') or {}
+        same_page = str(key.get('hd')) == str(sc['hd']) and str(key.get('jcd')).zfill(2) == str(sc['jcd']).zfill(2) and str(key.get('rno')) == str(int(sc['rno']))
+        absent = sorted({int(t['teino']) for t in (bi.get('maindata') or {}).get('teiinfolist', [])
+                         if same_page and str(t.get('absentflag')) == '1' and str(t.get('teino')) in ('1','2','3','4','5','6')})
+        reason = ('・'.join(str(n) + '号艇' for n in absent) + 'が欠場。推論・購入の記録はありません。') if absent else '締切を過ぎていますが、推論・購入の記録がありません。理由は未確認です。'
+        added.append(dict(id=rid, eng=SEEDAVG_ENGINE, strategy_label=SEEDAVG_LABEL, obs=False,
+                          venue=sc.get('venue_name'), rno=sc['rno'], deadline=sc['deadline'],
+                          verdict='withdrawal_skip' if absent else 'missing_processing_record',
+                          skip_reason=reason, absent_boats=absent, status_only=True,
+                          bets=[], planned_bets=[], win=None, pnl=None, settled=False, detail={}))
+    return added
+
+
 def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
@@ -480,6 +510,12 @@ def main():
         for r in json.load(open(sp)):
             rid = f"{r['hd']}_{r['jcd']}_{int(r['rno']):02d}"
             sched[rid] = r
+
+    # Read-only public status material; no inference or betting operation.
+    if SEEDAVG_ENGINE in engines:
+        status_dir = day / "beforeinfo_status"
+        status_dir.mkdir(exist_ok=True)
+        rsync(f"{SUB}:/home/sub/s2_live_service/live/{hd}/live_bi/venue_*_beforeinfo.json", status_dir)
 
     settle = {}
     total = {"stake": 0, "payout": 0, "pnl": 0, "hits": 0}
@@ -730,6 +766,7 @@ def main():
             continue  # 公式の解析で結果がまだ読めない=未確定のまま
         settle_simple(r, rr, total)
 
+    races.extend(missing_race_rows(races, sched, day, engines, receipts, now))
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
 
     # システムランプ: bet-server状態 / 朝バッチ / 推論の鮮度
@@ -802,7 +839,8 @@ def main():
         "date": hd,
         "n_scheduled": len(sched),
         "schedule": schedule,
-        "n_processed": len({r["id"] for r in races}),
+        "n_processed": len({r["id"] for r in races if not r.get("status_only")}),
+        "n_status_only": sum(bool(r.get("status_only")) for r in races),
         "n_bet_races": len({r["id"] for r in races if r["bets"]}),
         "n_bet_tickets": sum(len(r["bets"]) for r in races if not r.get("obs")),  # 買った券の合計(レース数とは別)
         "total": total,

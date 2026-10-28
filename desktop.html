@@ -1821,6 +1821,14 @@ function renderLiveDetail(wid){
     '<div class="pipe-eyebrow" style="margin:8px 0 10px">DETAIL ── '+head+"</div>";
   rs.forEach(function(r){
     var d2=r.detail||{},b="";
+    if(r.status_only||r.verdict==="missing_processing_record"||r.verdict==="withdrawal_skip"){
+      var recordReason=r.skip_reason||GATE_JP[r.verdict]||"推論・購入の記録がありません。";
+      b='<div class="kvgrid" style="margin-top:10px">'+
+        kv("状態",GATE_S[r.verdict]||"処理記録なし")+kv("推論・購入","記録なし")+"</div>"+
+        '<div class="dl" style="margin-top:10px">'+String(recordReason).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];})+"</div>";
+      out+=stg('<span style="color:'+(ENG_COLOR[r.eng]||"var(--cyan)")+'">'+rowEngineLabel(r)+"</span>",head,b);
+      return;
+    }
     if(d2.mu&&d2.mu.length){
       var lo=Math.min.apply(null,d2.mu)-1.5, hi=Math.max.apply(null,d2.mu)+1.5;
       var bp=function(v){return Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100));};

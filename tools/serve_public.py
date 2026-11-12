@@ -17,6 +17,19 @@ ROUTES = {
         "no-store",
     ),
 }
+# 画像(ファビコンとランプ)。許可したファイルだけを出す
+STATIC = {
+    "/favicon.ico": "image/x-icon",
+    "/apple-touch-icon.png": "image/png",
+    "/assets/lamp/icon-32.png": "image/png",
+    "/assets/lamp/icon-192.png": "image/png",
+    "/assets/lamp/icon-512.png": "image/png",
+    "/assets/lamp/hibiscus-off-256.webp": "image/webp",
+    "/assets/lamp/hibiscus-on-256.webp": "image/webp",
+    "/assets/lamp/hibiscus-off-512.webp": "image/webp",
+    "/assets/lamp/hibiscus-on-512.webp": "image/webp",
+}
+ROUTES.update({path: (REPO / path.lstrip("/"), ctype, "public, max-age=3600") for path, ctype in STATIC.items()})
 
 
 class PublicHandler(BaseHTTPRequestHandler):

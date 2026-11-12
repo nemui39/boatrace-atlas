@@ -1,4 +1,4 @@
-# BOTRACE — TRIFECTA ENGINE
+# TITANBICUS — TRIFECTA ENGINE
 
 実運用中のボートレース3連単AIを、データ収集から推論、意思決定、結果・収支までリアルタイムに可視化するポートフォリオです。
 

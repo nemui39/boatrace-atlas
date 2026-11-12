@@ -28,6 +28,10 @@ STATIC = {
     "/assets/lamp/hibiscus-on-256.webp": "image/webp",
     "/assets/lamp/hibiscus-off-512.webp": "image/webp",
     "/assets/lamp/hibiscus-on-512.webp": "image/webp",
+    "/assets/lamp/hibiscus-lit-flower-256.webp": "image/webp",
+    "/assets/lamp/hibiscus-lit-leaf-256.webp": "image/webp",
+    "/assets/lamp/hibiscus-lit-flower-512.webp": "image/webp",
+    "/assets/lamp/hibiscus-lit-leaf-512.webp": "image/webp",
 }
 ROUTES.update({path: (REPO / path.lstrip("/"), ctype, "public, max-age=3600") for path, ctype in STATIC.items()})
 

@@ -176,11 +176,12 @@
     font-family:ui-monospace,Consolas,monospace;font-size:10px;color:#9fb3c8;letter-spacing:.04em;
     font-variant-numeric:tabular-nums;}
   #slump:empty{display:none;}
-  .sg-lamp{position:absolute;top:2%;height:34%;aspect-ratio:1;pointer-events:none;z-index:0;}
-  .sg-lamp.l{left:9.8%;} .sg-lamp.r{right:.6%;transform:scaleX(-1);}
+  .sg-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .sg-head .sg-leg{flex:1;min-width:0;margin-bottom:0;justify-content:center;}
+  .sg-lamp{position:relative;flex:0 0 72px;height:72px;pointer-events:none;}
+  .sg-lamp.r{transform:scaleX(-1);}
   .sg-lamp img{position:absolute;inset:0;width:100%;height:100%;display:block;}
   .sg-lamp img.on{opacity:0;transition:opacity .12s linear;}
-  .sg-wrap svg{position:relative;z-index:1;}
   .slump-leg{display:flex;gap:18px;font-family:ui-monospace,Consolas,monospace;font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums;}
   #venue-live{border:1px solid var(--line);margin-bottom:10px;
     transform:translateZ(0);contain:layout style;}
@@ -326,6 +327,10 @@
   .lg-grid span{color:var(--mut2);}
   .lg-grid b{text-align:right;font-weight:400;color:var(--ink);}
   .lg-grid b.g{color:var(--win);} .lg-grid b.r{color:var(--lose);}
+  /* 脚が 1 本だけのときは 1 行に 2 項目(BET|券、賭金|HIT、P/L|回収)で 3 行に縮め、グラフを広くする */
+  .lg-blk:only-child{padding-bottom:8px;}
+  .lg-blk:only-child .lg-grid{grid-template-columns:auto 1fr auto 1fr;}
+  .lg-blk:only-child .lg-grid b:nth-of-type(odd){padding-right:18px;border-right:1px dashed rgba(20,36,58,.9);margin-right:8px;}
   #eng-stats:empty{display:none;}
   .es-row{display:flex;gap:3px 14px;padding:6px 12px;border-bottom:1px solid rgba(20,36,58,.6);
     font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);flex-wrap:wrap;
@@ -1997,11 +2002,11 @@ function renderEngStats(d){
 }
 var slumpKey="",slumpFirst=true;
 // タイタンビカスのランプ(左右一組・内向き)。いまは消灯の絵だけを出す。点灯は .on の opacity を上げる
-function lampHtml(){
-  return ["l","r"].map(function(k){
-    return '<div class="sg-lamp '+k+'" aria-hidden="true"><img src="assets/lamp/hibiscus-off-256.webp" alt=""><img class="on" src="assets/lamp/hibiscus-on-256.webp" alt="" loading="lazy"></div>';
-  }).join("");
+function lampHtml(k){
+  return '<div class="sg-lamp '+k+'" aria-hidden="true"><img src="assets/lamp/hibiscus-off-256.webp" alt=""><img class="on" src="assets/lamp/hibiscus-on-256.webp" alt="" loading="lazy"></div>';
 }
+// 見出しの帯: 左右の端にランプ、その間に凡例。折れ線の領域には重ねない
+function slumpHead(leg){return '<div class="sg-head">'+lampHtml("l")+leg+lampHtml("r")+"</div>";}
 function renderSlump(d){
   var el=document.getElementById("slump");
   if(!el)return;
@@ -2024,8 +2029,8 @@ function renderSlump(d){
       var yl=[2000,0,-2000].map(function(g0){
         return '<span class="sg-ylab" style="top:'+(Y0(g0)/H0*100).toFixed(2)+'%">'+(g0>0?"+":"")+g0.toLocaleString("ja-JP")+"</span>";
       }).join("");
-      el.innerHTML='<div class="sg-leg"><span style="color:var(--mut2)">SLUMP \u2500 WAITING FIRST RESULT\u2026</span></div>'+
-        '<div class="sg-wrap">'+lampHtml()+sv+yl+"</div>";
+      el.innerHTML=slumpHead('<div class="sg-leg"><span style="color:var(--mut2)">SLUMP \u2500 WAITING FIRST RESULT\u2026</span></div>')+
+        '<div class="sg-wrap">'+sv+yl+"</div>";
     }
     return;
   }
@@ -2068,7 +2073,7 @@ function renderSlump(d){
     return '<span style="color:'+s.col+'">'+s.name+' <b class="'+(last>0?"g":(last<0?"r":""))+'">'+(last>=0?"+":"")+last.toLocaleString("ja-JP")+"円</b></span>";
   }).join("")+"</div>";
   var xlab='<span style="position:absolute;left:'+(X0/W2*100).toFixed(2)+'%;bottom:0;transform:translateX(-18%);font-family:ui-monospace,Consolas,monospace;font-size:9px;color:var(--mut2);letter-spacing:.08em">0 BET</span>';
-  el.innerHTML=leg+'<div class="sg-wrap">'+lampHtml()+svg+ylab+xlab+"</div>";
+  el.innerHTML=slumpHead(leg)+'<div class="sg-wrap">'+svg+ylab+xlab+"</div>";
 }
 function loadLive(){
   fetch("data/live_today.json",{cache:"no-store"}).then(function(r){

@@ -464,6 +464,24 @@ def missing_race_rows(races, sched, day, engines, receipts, now):
     return added
 
 
+# ランプのプレミア点灯の境目: 当日の損益が資金(プール)の何割を超えたら「たくさん儲かった」とみなすか
+LAMP_PREMIUM_POOL_RATIO = 0.05
+SEEDAVG_LEDGER = "/home/sub/m1_seedavg_family_shadow_v1/bundle_20260924b/live_state/capital_ledger.json"
+
+
+def lamp_thresholds(day):
+    """sub の資金台帳(読み取りだけ)から、プレミア点灯の境目を円で出す。資金の額そのものは公開データに入れない。
+    台帳が読めないときは None(プレミア点灯なし、プラスなら通常の点灯)。"""
+    dst = day / "ledger"
+    dst.mkdir(exist_ok=True)
+    rsync(f"{SUB}:{SEEDAVG_LEDGER}", dst)
+    try:
+        wealth = int(json.load(open(dst / "capital_ledger.json"))["wealth"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return {"premium_pnl_yen": None, "pool_ratio": LAMP_PREMIUM_POOL_RATIO}
+    return {"premium_pnl_yen": int(round(wealth * LAMP_PREMIUM_POOL_RATIO, -2)), "pool_ratio": LAMP_PREMIUM_POOL_RATIO}
+
+
 def main():
     hd = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().strftime("%Y%m%d")
     day = CACHE / hd
@@ -844,6 +862,7 @@ def main():
         "n_bet_races": len({r["id"] for r in races if r["bets"]}),
         "n_bet_tickets": sum(len(r["bets"]) for r in races if not r.get("obs")),  # 買った券の合計(レース数とは別)
         "total": total,
+        "lamp": lamp_thresholds(day),
         "sys": sysd,
         "races": races,
         "engine_labels": {**{eng: current_label for eng in PUBLIC_LIVE_ENGINES if current_label},

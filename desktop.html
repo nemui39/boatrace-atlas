@@ -2011,42 +2011,51 @@ function lampHtml(k){
 var LAMP_PAT={
   off:function(t){return[0,0,0,0];},
   on:function(t){return[1,1,1,1];},
-  faint:function(t){var b=.10+.14*(.5+.5*Math.sin(t/1400));return[b,b,.08,.08];},
-  slow:function(t){var b=.2+.7*(.5+.5*Math.sin(t/520));return[b,b,.35,.35];},
+  flower:function(t){return[1,1,0,0];},   // 花だけ点灯
+  leaf:function(t){return[0,0,1,1];},     // 葉だけ点灯
   alt:function(t){return Math.floor(t/380)%2?[1,.08,.08,1]:[.08,1,1,.08];},
   fast:function(t){return[[1,1,0,0],[0,0,1,1],[1,0,0,1],[0,1,1,0],[1,1,1,1],[0,0,0,0],[1,1,1,1],[0,0,0,0]][Math.floor(t/110)%8];},
   hit:function(t){var k=Math.floor(t/90)%10,b=k<6?(k%2?0:1):1;return[b,b,b,b];}
 };
-var LAMP_NAME={off:"消灯",on:"点灯",faint:"ほのか",slow:"ゆっくり",alt:"左右交互",fast:"祭り",hit:"的中フラッシュ"};
-var lampMode="off",lampFlashUntil=0,lampHits=null,lampStill=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-var lampForce=(function(){var m=/[?&#]lamp=([a-z]+)/.exec(location.search+location.hash);return m&&LAMP_PAT[m[1]]?m[1]:null;})();
-// 当日の確定済みレースから状態を決める。cum = 損益の累計、peak = その日の最高値、ret = 回収率(確定分の払戻 ÷ 賭金)
+var LAMP_NAME={off:"消灯",on:"点灯",flower:"プレミア: 花だけ点灯",leaf:"プレミア: 葉だけ点灯",alt:"プレミア: 左右交互",fast:"プレミア: 祭り",hit:"的中フラッシュ"};
+// プレミア点灯の候補。たくさん儲かったとき(当日の損益が資金の一定割合以上)に、この中から無作為に選ぶ
+var LAMP_PREMIUM=["flower","leaf","alt","fast"],LAMP_PREMIUM_SEC=20;
+var lampMode="off",lampFlashUntil=0,lampHits=null,lampPrem=null,lampPremAt=0,lampStill=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var lampForce=(function(){var m=/[?&#]lamp=([a-z]+)/.exec(location.search+location.hash);return m&&(LAMP_PAT[m[1]]||m[1]==="premium")?m[1]:null;})();
+// 当日の確定済みレースから状態を決める(cum = 損益の累計)。
+//   マイナス(と 0、確定なし)の間は消灯 / プラスになったら点灯 / 境目(資金比、exporter が円で渡す)以上ならプレミア
 function lampState(d){
-  var cum=0,peak=0,stake=0,hits=0,n=0;
+  var cum=0,hits=0,n=0;
   (d.races||[]).forEach(function(r){
     if(r.obs||r.pnl==null||!r.bets.length)return;
     var st=r.bets.reduce(function(a2,x){return a2+(x.stake||0);},0);
-    n++;stake+=st;cum+=r.pnl;if(cum>peak)peak=cum;if(r.pnl+st>0)hits++;
+    n++;cum+=r.pnl;if(r.pnl+st>0)hits++;
   });
-  var ret=stake?(stake+cum)/stake:0,mode;
-  if(!n)mode="off";
-  else if(cum>0&&cum>=peak)mode="fast";   // プラスで、その日の最高値にいる
-  else if(cum>0)mode="alt";               // プラス
-  else if(ret>=.7)mode="slow";            // マイナスだが回収率 70% 以上
-  else if(ret>=.3)mode="faint";           // 回収率 30〜70%
-  else mode="off";                        // 回収率 30% 未満
-  return {mode:mode,hits:hits,cum:cum,ret:ret,n:n};
+  var thr=d.lamp&&d.lamp.premium_pnl_yen,mode;
+  if(!n||cum<=0)mode="off";
+  else if(thr&&cum>=thr)mode="premium";
+  else mode="on";
+  return {mode:mode,hits:hits,cum:cum,n:n};
 }
 function lampUpdate(d){
   var s=lampState(d);
-  if(lampHits!==null&&s.hits>lampHits)lampFlashUntil=performance.now()+9000; // 新しい的中が入ったら 9 秒フラッシュ(初回の読み込みでは鳴らさない)
+  if(lampHits!==null&&s.hits>lampHits&&s.cum>0)lampFlashUntil=performance.now()+9000; // 新しい的中でプラスにいるときだけ 9 秒フラッシュ(マイナスの間は消灯のまま)
   lampHits=s.hits;lampMode=s.mode;
+}
+function lampPremium(t){ // 一定の秒数ごとに、前と違う候補を無作為に選ぶ
+  if(!lampPrem||t-lampPremAt>LAMP_PREMIUM_SEC*1000){
+    var c=LAMP_PREMIUM.filter(function(x){return x!==lampPrem;});
+    lampPrem=c[Math.floor(Math.random()*c.length)];lampPremAt=t;
+  }
+  return lampPrem;
 }
 function lampTick(t){
   var els=document.querySelectorAll(".sg-lamp");
   if(els.length){
-    var m=lampForce||(t<lampFlashUntil?"hit":lampMode),v=LAMP_PAT[m](lampStill?0:t);
-    if(lampStill&&m!=="off")v=m==="faint"?[.2,.2,.1,.1]:[.8,.8,.5,.5]; // 動きを減らす設定では点滅させず一定の明るさ
+    var m=lampForce||(t<lampFlashUntil?"hit":lampMode);
+    if(m==="premium")m=lampStill?"flower":lampPremium(t);
+    var v=LAMP_PAT[m](lampStill?0:t);
+    if(lampStill&&(m==="alt"||m==="fast"||m==="hit"))v=[1,1,1,1]; // 動きを減らす設定では点滅させない
     for(var i=0;i<els.length;i++){
       var r=els[i].classList.contains("r"),a=els[i].querySelector(".fl"),b=els[i].querySelector(".lf");
       if(a)a.style.opacity=v[r?1:0];if(b)b.style.opacity=v[r?3:2];

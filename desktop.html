@@ -2022,15 +2022,17 @@ var LAMP_PAT={
   leaf:function(t){return[0,0,1,1,1,1];}, // 葉だけ点灯。しべの先の粒も緑に光らせる(5・6 番目 = 左右の粒)
   left:function(t){return[1,0,1,0];},     // 左だけ咲く(左の花と葉が点灯、右は消灯)
   right:function(t){return[0,1,0,1];},    // 右だけ咲く
+  quick:function(t){var b=Math.floor(t/LAMP_QUICK_MS)%2?0:1;return[b,b,b,b];}, // 高速点滅(全体が同時に点いたり消えたり)
+  slow:function(t){var b=Math.floor(t/LAMP_SLOW_MS)%2?0:1;return[b,b,b,b];},   // スロー点滅
   alt:function(t){return Math.floor(t/LAMP_ALT_MS)%2?[0,1,0,1]:[1,0,1,0];}, // 左(花も葉も)→ 右 → 左 … を交互に
   fast:function(t){return[[1,1,0,0],[0,0,1,1],[1,0,0,1],[0,1,1,0],[1,1,1,1],[0,0,0,0],[1,1,1,1],[0,0,0,0]][Math.floor(t/110)%8];},
   hit:function(t){ // 三三七拍子: 3 拍・休み・3 拍・休み・7 拍・休み 2 つ を繰り返す
     var k=Math.floor(t/LAMP_BEAT_MS)%LAMP_337.length,b=LAMP_337[k]&&(t%LAMP_BEAT_MS)<LAMP_BEAT_MS*.55?1:0;return[b,b,b,b];}
 };
-var LAMP_ALT_MS=700,LAMP_BEAT_MS=260,LAMP_337=[1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0];
-var LAMP_NAME={off:"消灯",on:"点灯",flower:"プレミア: 花だけ点灯",leaf:"プレミア: 葉だけ点灯",left:"プレミア: 左だけ咲き",right:"プレミア: 右だけ咲き",alt:"プレミア: 左右交互",fast:"プレミア: 祭り",hit:"的中(三三七拍子)"};
+var LAMP_QUICK_MS=130,LAMP_SLOW_MS=1100,LAMP_ALT_MS=700,LAMP_BEAT_MS=260,LAMP_337=[1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0];
+var LAMP_NAME={off:"消灯",on:"点灯",flower:"プレミア: 花だけ点灯",leaf:"プレミア: 葉だけ点灯",left:"プレミア: 左だけ咲き",right:"プレミア: 右だけ咲き",quick:"プレミア: 高速点滅",slow:"プレミア: スロー点滅",alt:"プレミア: 左右交互",fast:"プレミア: 祭り",hit:"的中(三三七拍子)"};
 // プレミア点灯の候補。たくさん儲かったとき(当日の損益が資金の一定割合以上)に、この中から無作為に選ぶ
-var LAMP_PREMIUM=["flower","leaf","left","right","alt","fast"],LAMP_PREMIUM_SEC=20;
+var LAMP_PREMIUM=["flower","leaf","left","right","quick","slow","alt","fast"],LAMP_PREMIUM_SEC=20;
 var lampMode="off",lampPrem=null,lampPremAt=0,lampMiss=0,lampPremMiss=-1,lampStill=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 var lampForce=(function(){var m=/[?&#]lamp=([a-z]+)/.exec(location.search+location.hash);return m&&(LAMP_PAT[m[1]]||m[1]==="premium")?m[1]:null;})();
 // 当日の確定済みレースから状態を決める(cum = 損益の累計)。
@@ -2065,7 +2067,7 @@ function lampTick(t){
     var m=lampForce||lampMode;
     if(m==="premium")m=lampStill?"flower":lampPremium(t);
     var v=LAMP_PAT[m](lampStill?0:t);
-    if(lampStill&&(m==="alt"||m==="fast"||m==="hit"))v=[1,1,1,1]; // 動きを減らす設定では点滅させない
+    if(lampStill&&(m==="alt"||m==="fast"||m==="hit"||m==="quick"||m==="slow"))v=[1,1,1,1]; // 動きを減らす設定では点滅させない
     for(var i=0;i<els.length;i++){
       var r=els[i].classList.contains("r"),a=els[i].querySelector(".fl"),b=els[i].querySelector(".lf"),c=els[i].querySelector(".an");
       if(a)a.style.opacity=v[r?1:0];if(b)b.style.opacity=v[r?3:2];if(c)c.style.opacity=v[r?5:4]||0;

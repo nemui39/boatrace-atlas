@@ -2022,15 +2022,15 @@ var LAMP_PAT={
   leaf:function(t){return[0,0,1,1,1,1];}, // 葉だけ点灯。しべの先の粒も緑に光らせる(5・6 番目 = 左右の粒)
   left:function(t){return[1,0,1,0];},     // 左だけ咲く(左の花と葉が点灯、右は消灯)
   right:function(t){return[0,1,0,1];},    // 右だけ咲く
-  quick:function(t){var b=Math.floor(t/LAMP_QUICK_MS)%2?0:1;return[b,b,b,b];}, // 高速点滅(全体が同時に点いたり消えたり)
-  slow:function(t){var b=Math.floor(t/LAMP_SLOW_MS)%2?0:1;return[b,b,b,b];},   // スロー点滅
+  quick:function(t){return Math.floor(t/LAMP_QUICK_MS)%2?[0,1,0,1]:[1,0,1,0];}, // 左右交互の高速(左 → 右 → 左 …)
+  slow:function(t){return Math.floor(t/LAMP_SLOW_MS)%2?[0,1,0,1]:[1,0,1,0];},   // 左右交互のスロー。普通の速さは alt
   alt:function(t){return Math.floor(t/LAMP_ALT_MS)%2?[0,1,0,1]:[1,0,1,0];}, // 左(花も葉も)→ 右 → 左 … を交互に
   fast:function(t){return[[1,1,0,0],[0,0,1,1],[1,0,0,1],[0,1,1,0],[1,1,1,1],[0,0,0,0],[1,1,1,1],[0,0,0,0]][Math.floor(t/110)%8];},
   hit:function(t){ // 三三七拍子: 3 拍・休み・3 拍・休み・7 拍・休み 2 つ を繰り返す
     var k=Math.floor(t/LAMP_BEAT_MS)%LAMP_337.length,b=LAMP_337[k]&&(t%LAMP_BEAT_MS)<LAMP_BEAT_MS*.55?1:0;return[b,b,b,b];}
 };
-var LAMP_QUICK_MS=130,LAMP_SLOW_MS=1100,LAMP_ALT_MS=700,LAMP_BEAT_MS=260,LAMP_337=[1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0];
-var LAMP_NAME={off:"消灯",on:"点灯",flower:"プレミア: 花だけ点灯",leaf:"プレミア: 葉だけ点灯",left:"プレミア: 左だけ咲き",right:"プレミア: 右だけ咲き",quick:"プレミア: 高速点滅",slow:"プレミア: スロー点滅",alt:"プレミア: 左右交互",fast:"プレミア: 祭り",hit:"的中(三三七拍子)"};
+var LAMP_QUICK_MS=250,LAMP_SLOW_MS=1500,LAMP_ALT_MS=700,LAMP_BEAT_MS=260,LAMP_337=[1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0];
+var LAMP_NAME={off:"消灯",on:"点灯",flower:"プレミア: 花だけ点灯",leaf:"プレミア: 葉だけ点灯",left:"プレミア: 左だけ咲き",right:"プレミア: 右だけ咲き",quick:"プレミア: 左右交互(高速)",slow:"プレミア: 左右交互(スロー)",alt:"プレミア: 左右交互(普通)",fast:"プレミア: 祭り",hit:"的中(三三七拍子)"};
 // プレミア点灯の候補。たくさん儲かったとき(当日の損益が資金の一定割合以上)に、この中から無作為に選ぶ
 var LAMP_PREMIUM=["flower","leaf","left","right","quick","slow","alt","fast"],LAMP_PREMIUM_SEC=20;
 var lampMode="off",lampPrem=null,lampPremAt=0,lampMiss=0,lampPremMiss=-1,lampStill=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;

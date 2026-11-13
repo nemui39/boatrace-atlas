@@ -2020,8 +2020,8 @@ var LAMP_PAT={
   on:function(t){return[1,1,1,1];},
   flower:function(t){return[1,1,0,0];},   // 花だけ点灯
   leaf:function(t){return[0,0,1,1,1,1];}, // 葉だけ点灯。しべの先の粒も緑に光らせる(5・6 番目 = 左右の粒)
-  left:function(t){return[1,0,1,0];},     // 左だけ咲く(左の花と葉が点灯、右は消灯)
-  right:function(t){return[0,1,0,1];},    // 右だけ咲く
+  left:function(t){return[0,1,0,1];},     // 左だけ咲く(画面で左の花と葉が点灯、右は消灯)。画面では .r の側が左に見える
+  right:function(t){return[1,0,1,0];},    // 右だけ咲く
   alt:function(t){return Math.floor(t/LAMP_ALT_MS)%2?[0,1,0,1]:[1,0,1,0];}, // 左(花も葉も)→ 右 → 左 … を交互に
   fast:function(t){return[[1,1,0,0],[0,0,1,1],[1,0,0,1],[0,1,1,0],[1,1,1,1],[0,0,0,0],[1,1,1,1],[0,0,0,0]][Math.floor(t/110)%8];},
   hit:function(t){ // 三三七拍子: 3 拍・休み・3 拍・休み・7 拍・休み 2 つ を繰り返す

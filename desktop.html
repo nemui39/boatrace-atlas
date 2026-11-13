@@ -2029,7 +2029,7 @@ var LAMP_PAT={
   hit:function(t){ // 三三七拍子: 3 拍・休み・3 拍・休み・7 拍・休み 2 つ を繰り返す
     var k=Math.floor(t/LAMP_BEAT_MS)%LAMP_337.length,b=LAMP_337[k]&&(t%LAMP_BEAT_MS)<LAMP_BEAT_MS*.55?1:0;return[b,b,b,b];}
 };
-var LAMP_QUICK_MS=250,LAMP_SLOW_MS=1500,LAMP_ALT_MS=700,LAMP_BEAT_MS=260,LAMP_337=[1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0];
+var LAMP_QUICK_MS=125,LAMP_SLOW_MS=700,LAMP_ALT_MS=250,LAMP_BEAT_MS=260,LAMP_337=[1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0];
 var LAMP_NAME={off:"消灯",on:"点灯",flower:"プレミア: 花だけ点灯",leaf:"プレミア: 葉だけ点灯",left:"プレミア: 左だけ咲き",right:"プレミア: 右だけ咲き",quick:"プレミア: 左右交互(高速)",slow:"プレミア: 左右交互(スロー)",alt:"プレミア: 左右交互(普通)",fast:"プレミア: 祭り",hit:"的中(三三七拍子)"};
 // プレミア点灯の候補。たくさん儲かったとき(当日の損益が資金の一定割合以上)に、この中から無作為に選ぶ
 var LAMP_PREMIUM=["flower","leaf","left","right","quick","slow","alt","fast"],LAMP_PREMIUM_SEC=20;

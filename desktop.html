@@ -1959,7 +1959,7 @@ function renderEngStats(d){
       e.b++;e.tk+=r.bets.length;
       var st=r.bets.reduce(function(a2,x){return a2+(x.stake||0);},0);
       e.stake+=st;
-      if(r.pnl!=null){e.res++;e.pnl+=r.pnl;e.resStake+=st;if(r.pnl+st>0)e.hits++;if(r.prov)e.prov=true;}
+      if(r.pnl!=null){e.res++;e.pnl+=r.pnl;e.resStake+=st;if(raceHit(r))e.hits++;if(r.prov)e.prov=true;}
     }
   });
   function block(name,e,col,strong){
@@ -1987,7 +1987,7 @@ function renderEngStats(d){
       o.bet=true;o.tk+=r.bets.length;
       var st2=r.bets.reduce(function(a2,x){return a2+(x.stake||0);},0);
       o.stake+=st2;
-      if(r.pnl!=null){o.res=true;o.resStake+=st2;o.pnl+=r.pnl;if(r.pnl+st2>0)o.hit=true;if(r.prov)o.prov=true;}
+      if(r.pnl!=null){o.res=true;o.resStake+=st2;o.pnl+=r.pnl;if(raceHit(r))o.hit=true;if(r.prov)o.prov=true;}
     }
   });
   var T={n:0,b:0,tk:0,stake:0,pnl:0,resStake:0,hits:0,res:0,prov:false};
@@ -1999,6 +1999,13 @@ function renderEngStats(d){
   });
   if(Object.keys(by).length>1)t.push(block("TOTAL",T,"#e05252",true));
   document.getElementById("eng-stats").innerHTML=t.join("");
+}
+// 的中の判定: 買った券が当たったかどうかだけで決める。返還(不成立・返還艇)で払戻が出ても的中にしない。
+// exporter が r.hit を渡す。無い行(本体が精算した行など)は、勝ち番と買い目の一致で見る。
+function raceHit(r){
+  if(r.hit!=null)return !!r.hit;
+  var w=String(r.win||"").replace(/-/g,"");
+  return /^[1-6]{3}$/.test(w)&&(r.bets||[]).some(function(b){return b.k===w;});
 }
 var slumpKey="",slumpFirst=true;
 // タイタンビカスのランプ(左右一組・内向き)。いまは消灯の絵だけを出す。点灯は .on の opacity を上げる
@@ -2032,7 +2039,7 @@ function lampState(d){
   (d.races||[]).forEach(function(r){
     if(r.obs||r.pnl==null||!r.bets.length)return;
     var st=r.bets.reduce(function(a2,x){return a2+(x.stake||0);},0);
-    n++;cum+=r.pnl;lastHit=r.pnl+st>0; // 直近に確定した購入レースが的中か
+    n++;cum+=r.pnl;lastHit=raceHit(r); // 直近に確定した購入レースが的中か(返還だけのレースは外れ扱い)
   });
   var thr=d.lamp&&d.lamp.premium_pnl_yen,mode;
   if(lastHit)mode="hit";                 // 当たったら、次に外れるまで三三七拍子

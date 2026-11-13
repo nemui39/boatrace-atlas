@@ -415,7 +415,7 @@ def settle_simple(r, rr, total):
         return
     wk = win.replace("-", "")
     if not wk.isdigit():
-        r["win"] = win; r["pnl"] = 0; r["prov"] = True; r["cancel"] = True; r["ret"] = sum(b["stake"] for b in r["bets"])
+        r["win"] = win; r["pnl"] = 0; r["prov"] = True; r["cancel"] = True; r["ret"] = sum(b["stake"] for b in r["bets"]); r["hit"] = False
         return
     ret = {str(x) for x in (rr["maindata"].get("returnlist") or [])}
     stake = payout = refunded = 0
@@ -426,7 +426,7 @@ def settle_simple(r, rr, total):
         stake += b["stake"]
         if b["k"] == wk:
             payout += b["stake"] // 100 * div
-    r["win"] = win; r["pnl"] = payout - stake; r["prov"] = True
+    r["win"] = win; r["pnl"] = payout - stake; r["prov"] = True; r["hit"] = bool(payout)  # 返還は的中に数えない
     if refunded:
         r["ret"] = refunded
     total["stake"] += stake; total["payout"] += payout; total["pnl"] += payout - stake
@@ -775,6 +775,7 @@ def main():
         if res is not None and not res.get("pending"):
             stake = sum(b["stake"] for b in r["bets"]); payout = int(res["payout"])
             r["win"] = win; r["pnl"] = payout - stake; r["prov"] = True; r["official"] = True
+            r["hit"] = bool(res.get("hits"))  # 的中 = 買った券が当たった。返還だけで払戻が出たレースは外れ扱い
             if win is not None and not win.replace("-", "").isdigit():
                 r["cancel"] = True; r["ret"] = stake
             total["stake"] += stake; total["payout"] += payout; total["pnl"] += payout - stake

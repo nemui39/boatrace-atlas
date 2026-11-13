@@ -2030,14 +2030,14 @@ var LAMP_PAT={
     var k=Math.floor(t/LAMP_BEAT_MS)%LAMP_337.length,b=LAMP_337[k]&&(t%LAMP_BEAT_MS)<LAMP_BEAT_MS*.55?1:0;return[b,b,b,b];}
 };
 var LAMP_QUICK_MS=125,LAMP_SLOW_MS=700,LAMP_ALT_MS=250,LAMP_BEAT_MS=260,LAMP_337=[1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0];
-var LAMP_NAME={off:"消灯",on:"点灯",flower:"プレミア: 花だけ点灯",leaf:"プレミア: 葉だけ点灯",left:"プレミア: 左だけ咲き",right:"プレミア: 右だけ咲き",quick:"プレミア: 左右交互(高速)",slow:"プレミア: 左右交互(スロー)",alt:"プレミア: 左右交互(普通)",fast:"プレミア: 祭り",hit:"的中(三三七拍子)"};
+var LAMP_NAME={off:"消灯",on:"プレミア: 左右同時に点灯",flower:"プレミア: 花だけ点灯",leaf:"プレミア: 葉だけ点灯",left:"プレミア: 左だけ咲き",right:"プレミア: 右だけ咲き",quick:"プレミア: 左右交互(高速)",slow:"プレミア: 左右交互(スロー)",alt:"プラス: 左右交互(普通)",fast:"プレミア: 祭り",hit:"的中(三三七拍子)"};
 // プレミア点灯の候補。たくさん儲かったとき(当日の損益が資金の一定割合以上)に、この中から無作為に選ぶ
-var LAMP_PREMIUM=["flower","leaf","left","right","quick","slow","alt","fast"],LAMP_PREMIUM_SEC=20;
+var LAMP_PREMIUM=["on","flower","leaf","left","right","quick","slow","fast"],LAMP_PREMIUM_SEC=20;
 var lampMode="off",lampPrem=null,lampPremAt=0,lampMiss=0,lampPremMiss=-1,lampStill=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 var lampForce=(function(){var m=/[?&#]lamp=([a-z]+)/.exec(location.search+location.hash);return m&&(LAMP_PAT[m[1]]||m[1]==="premium")?m[1]:null;})();
 // 当日の確定済みレースから状態を決める(cum = 損益の累計)。
 //   直近の購入レースが的中なら、次に外れるまで三三七拍子(損益の符号より優先)
-//   それ以外は、マイナス(と 0、確定なし)の間は消灯 / プラスになったら点灯 / 境目(資金比、exporter が円で渡す)以上ならプレミア
+//   それ以外は、マイナス(と 0、確定なし)の間は消灯 / プラスになったら左右交互(普通の速さ) / 境目(資金比、exporter が円で渡す)以上ならプレミア
 function lampState(d){
   var cum=0,n=0,miss=0,lastHit=false;
   (d.races||[]).forEach(function(r){
@@ -2049,7 +2049,7 @@ function lampState(d){
   if(lastHit)mode="hit";                 // 当たったら、次に外れるまで三三七拍子
   else if(!n||cum<=0)mode="off";
   else if(thr&&cum>=thr)mode="premium";
-  else mode="on";
+  else mode="alt";                       // プラスの間は左右交互(普通の速さ)。左右同時の点灯(on)はプレミアの候補
   return {mode:mode,lastHit:lastHit,cum:cum,n:n,miss:miss};
 }
 function lampUpdate(d){var s=lampState(d);lampMode=s.mode;lampMiss=s.miss;}

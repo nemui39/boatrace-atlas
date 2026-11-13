@@ -174,7 +174,7 @@ document.addEventListener('keydown',e=>{if($('sheet-overlay').hidden)return;if(e
 function layout(){
  if(mq.matches){
   closeSheet();
-  if(!$('desktop-frame').getAttribute('src'))$('desktop-frame').src='/desktop.html';
+  if(!$('desktop-frame').getAttribute('src'))$('desktop-frame').src='/desktop.html'+location.search+location.hash; // ?lamp= などの指定を PC 版へそのまま渡す
  }else{
   $('desktop-frame').removeAttribute('src');
   refresh();

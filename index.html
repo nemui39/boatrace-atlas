@@ -32,7 +32,7 @@
 @media(max-width:359px){.mobile{padding-left:15px;padding-right:15px}.stat{padding-left:15px;padding-right:15px}.health{gap:4px}.health-item{font-size:9px}.wordmark{font-size:21px}.prob-row{grid-template-columns:80px 1fr 42px;gap:7px}}
 @media(prefers-reduced-motion:reduce){.view{animation:none}*{scroll-behavior:auto!important}}
 
-.pred-sort{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:14px 0 10px}
+.pred-sort{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:14px 0 10px}
 .pred-sort button{min-height:44px;padding:7px 2px;background:#0d1d2c;border:1px solid #294357;border-radius:6px;font-size:11px}
 .pred-sort button[aria-pressed=true]{color:var(--cyan);border-color:#4b9ebc;background:#143345}
 .pred-filter{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
@@ -46,7 +46,7 @@
 .pred-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 14px;margin:0}
 .pred-metrics div{display:flex;align-items:baseline;justify-content:space-between;gap:4px;min-width:0}
 .pred-metrics dt{font-size:10px;color:var(--mut)}.pred-metrics dd{font:11px var(--mono);margin:0;overflow-wrap:anywhere}
-.pred-metrics dd.edge{color:#ffbd73}
+.pred-metrics dd.edge{color:#ffbd73}.pred-metrics dd.drop{color:#ff8f8f}
 .tag.miss{background:#321a22;border-color:#71323e;color:var(--red)}.race-outcome{display:grid;gap:7px;margin-top:13px;padding:13px 0 0;border-top:1px solid #26384a}.race-outcome strong{font-size:19px;line-height:1.4;font-variant-numeric:tabular-nums}.race-outcome span{font-size:11px;color:#a7bacb;line-height:1.7}.race-outcome.waiting strong{color:#ffbd73;font-size:16px}
 .result-combination{display:flex;align-items:center;gap:12px;margin-top:10px;color:#becddd}.result-combination>span:first-child{font-size:12px}.race-outcome .result-combination{margin-top:0}.result-combination .boat{width:27px;height:29px;font-size:14px}
 </style>
@@ -117,7 +117,7 @@ function stopVenueVideo(box){
  box.querySelector('.video-start').hidden=false;
  box.querySelector('.video-controls').hidden=true;
 }
-const predictionSorts=[['ev_desc','EV↓'],['ev_asc','EV↑'],['p_desc','推論↓'],['p_asc','推論↑'],['m_desc','市場↓'],['m_asc','市場↑'],['k_asc','組番↑'],['k_desc','組番↓']];
+const predictionSorts=[['ev_desc','EV↓'],['ev_asc','EV↑'],['p_desc','推論↓'],['p_asc','推論↑'],['m_desc','市場↓'],['m_asc','市場↑'],['o_desc','T−4↓'],['o_asc','T−4↑'],['f_desc','予測↓'],['f_asc','予測↑'],['fr_desc','予測比↓'],['fr_asc','予測比↑'],['c_desc','確定↓'],['c_asc','確定↑'],['r_desc','確定比↓'],['r_asc','確定比↑'],['k_asc','組番↑'],['k_desc','組番↓']];
 const predictionState={sort:'p_desc',first:'0',second:'0'};
 let predictionRace=null;
 const kumis=[];for(let a=1;a<=6;a++)for(let b=1;b<=6;b++)for(let c=1;c<=6;c++)if(a!==b&&a!==c&&b!==c)kumis.push(''+a+b+c);
@@ -125,15 +125,15 @@ function predictionRows(r){
  const d=r.detail||{},complete=Array.isArray(d.p120)&&d.p120.length===120;
  const value=x=>typeof x==='number'&&Number.isFinite(x)?x:null;
  const boughtSet=new Set((r.bets||[]).map(b=>String(b.k))),plan=new Set((r.planned_bets||[]).map(b=>String(b.k)));
- const entries=complete?kumis.map((k,i)=>({k,p:value(d.p120[i]),m:value(d.m120?.[i]),o:value(d.o120?.[i])})):(r.top||d.t5||[]).map(t=>({k:String(t.k),p:value(t.p),m:null,o:null}));
- return entries.map(t=>({...t,ev:t.p!==null&&t.o!==null?t.p*t.o:null,bought:boughtSet.has(t.k),planned:plan.has(t.k)}));
+ const entries=complete?kumis.map((k,i)=>({k,p:value(d.p120[i]),m:value(d.m120?.[i]),o:value(d.o120?.[i]),f:value(d.f120?.[i]),c:value(d.c120?.[i])})):(r.top||d.t5||[]).map(t=>({k:String(t.k),p:value(t.p),m:null,o:null,f:null,c:null}));
+ return entries.map(t=>({...t,ev:t.p!==null&&(t.f??t.o)!==null?t.p*(t.f??t.o):null,fr:t.f!==null&&t.o?t.f/t.o:null,r:t.c!==null&&t.o?t.c/t.o:null,bought:boughtSet.has(t.k),planned:plan.has(t.k)}));
 }
 function predictionPanel(r){
  predictionRace=r;
  const hasAll=Array.isArray(r.detail?.p120)&&r.detail.p120.length===120;
  const filter=(key,label)=>'<label>'+label+'<select data-pred-filter="'+key+'" aria-label="'+label+'の艇番"><option value="0">全</option>'+[1,2,3,4,5,6].map(n=>'<option value="'+n+'"'+(predictionState[key]===String(n)?' selected':'')+'>'+n+'</option>').join('')+'</select></label>';
  return '<section class="sheet-section" id="predictions"><h3>3連単 · '+(hasAll?'全120通り':'取得できた予測')+'</h3>'+
- '<p class="pred-note">推論＝モデルの出現確率、市場＝T−4オッズの逆数を正規化した出現確率。EV＝推論確率 × T−4オッズ。掛金に使う予測価格とは別です。</p>'+
+ '<p class="pred-note">推論＝'+(r.detail?.psrc==='A2'?'本番モデル A2 の':'モデルの')+'出現確率、市場＝T−4オッズの逆数を正規化した出現確率。'+(r.detail?.f120?'予測＝確定オッズの予測(予測価格)。EV＝推論確率 × 予測価格で、A2 は 1.14 以上を買います。':'EV＝推論確率 × T−4オッズ。')+'確定＝締切後の確定オッズ。予測比・確定比はそれぞれ T−4 で割った値(1 未満は値下がり)。</p>'+
  (!hasAll?'<p class="pred-note">このレースには120通りのデータがありません。取得できた予測をすべて表示します。未取得の値は「—」です。</p>':'')+
  '<div class="pred-sort" role="group" aria-label="予測の並べ替え">'+predictionSorts.map(([key,label])=>'<button type="button" data-pred-sort="'+key+'" aria-pressed="'+(predictionState.sort===key)+'">'+label+'</button>').join('')+'</div>'+
  '<div class="pred-filter">'+filter('first','1着')+filter('second','2着')+'</div><p class="pred-count" id="prediction-count" role="status"></p><div id="prediction-list"></div></section>';
@@ -145,7 +145,7 @@ function renderPredictions(){
  shown.sort((a,b)=>{const x=field==='k'?Number(a.k):a[field],y=field==='k'?Number(b.k):b[field];return x===null&&y===null?a.k.localeCompare(b.k):x===null?1:y===null?-1:dir*(x-y)||a.k.localeCompare(b.k)});
  $('prediction-count').textContent=shown.length+' / '+all.length+'通り'+(shown.length?' · 省略なし':' · 該当する組み合わせはありません');
  const fmt=(v,type)=>v===null?'—':type==='pct'?(v*100).toFixed(2)+'%':type==='odds'?v.toFixed(1)+'倍':v.toFixed(2);
- $('prediction-list').innerHTML=shown.map((t,i)=>'<div class="pred-row" data-kumi="'+esc(t.k)+'"><div class="pred-row-head"><span class="pred-rank">'+(i+1)+'</span>'+combo(t.k)+(t.bought?'<span class="pred-mark">購入済み</span>':t.planned?'<span class="pred-mark planned">候補・未購入</span>':'')+'</div><dl class="pred-metrics"><div><dt>EV</dt><dd class="'+(t.ev!==null&&t.ev>=1.1?'edge':'')+'">'+fmt(t.ev)+'</dd></div><div><dt>T−4</dt><dd>'+fmt(t.o,'odds')+'</dd></div><div><dt>推論</dt><dd>'+fmt(t.p,'pct')+'</dd></div><div><dt>市場</dt><dd>'+fmt(t.m,'pct')+'</dd></div></dl></div>').join('');
+ $('prediction-list').innerHTML=shown.map((t,i)=>'<div class="pred-row" data-kumi="'+esc(t.k)+'"><div class="pred-row-head"><span class="pred-rank">'+(i+1)+'</span>'+combo(t.k)+(t.bought?'<span class="pred-mark">購入済み</span>':t.planned?'<span class="pred-mark planned">候補・未購入</span>':'')+'</div><dl class="pred-metrics"><div><dt>EV</dt><dd class="'+(t.ev!==null&&t.ev>=1.14?'edge':'')+'">'+fmt(t.ev)+'</dd></div><div><dt>T−4</dt><dd>'+fmt(t.o,'odds')+'</dd></div><div><dt>推論</dt><dd>'+fmt(t.p,'pct')+'</dd></div><div><dt>市場</dt><dd>'+fmt(t.m,'pct')+'</dd></div><div><dt>予測</dt><dd>'+fmt(t.f,'odds')+'</dd></div><div><dt>予測比</dt><dd class="'+(t.fr!==null&&t.fr<1?'drop':'')+'">'+fmt(t.fr)+'</dd></div><div><dt>確定</dt><dd>'+fmt(t.c,'odds')+'</dd></div><div><dt>確定比</dt><dd class="'+(t.r!==null&&t.r<1?'drop':'')+'">'+fmt(t.r)+'</dd></div></dl></div>').join('');
  document.querySelectorAll('[data-pred-sort]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.predSort===predictionState.sort));
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-pred-sort]');if(b){predictionState.sort=b.dataset.predSort;renderPredictions()}});

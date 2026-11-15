@@ -2255,7 +2255,7 @@ var wlScript={},wlShown={},wlType={};
 var ENGS=["seedavg10"];
 /* p_final 120通り: 並べ替え(EV/推論/市場/組番 × 昇順・降順。組番↑=123→654)と絞り込み(1着N / 1着N-2着M)。状態は画面全体で共通 */
 var P120={sort:"p_desc",f1:0,f2:0,data:{}};
-var P120_SORTS=[["ev_desc","EV↓"],["ev_asc","EV↑"],["p_desc","推論↓"],["p_asc","推論↑"],["m_desc","市場↓"],["m_asc","市場↑"],["ix_asc","組番↑"],["ix_desc","組番↓"]];
+var P120_SORTS=[["ev_desc","EV↓"],["ev_asc","EV↑"],["p_desc","推論↓"],["p_asc","推論↑"],["m_desc","市場↓"],["m_asc","市場↑"],["o_desc","T−4↓"],["o_asc","T−4↑"],["f_desc","予測↓"],["f_asc","予測↑"],["fr_desc","予測比↓"],["fr_asc","予測比↑"],["c_desc","確定↓"],["c_asc","確定↑"],["r_desc","確定比↓"],["r_asc","確定比↑"],["ix_asc","組番↑"],["ix_desc","組番↓"]];
 function p120Key(r){return String(r.id+"_"+r.eng).replace(/[^A-Za-z0-9_]/g,"_");}
 function p120Controls(){
   var h='<div class="p120-ctl" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;font-family:ui-monospace,Consolas,monospace;font-size:10px">';
@@ -2275,15 +2275,15 @@ function p120Block(r,d2){
   var key=p120Key(r),bought={},plan={};
   (r.bets||[]).forEach(function(bt){bought[bt.k]=1;});
   (r.planned_bets||[]).forEach(function(bt){plan[bt.k]=1;});
-  var hasM=d2.m120&&d2.m120.length===120,hasO=d2.o120&&d2.o120.length===120;
+  var hasM=d2.m120&&d2.m120.length===120,hasO=d2.o120&&d2.o120.length===120,hasC=d2.c120&&d2.c120.length===120,hasF=d2.f120&&d2.f120.length===120;
   var rows=K120.map(function(k,ix){
-    var p=d2.p120[ix],o=hasO?d2.o120[ix]:null;
-    return {k:k,ix:ix,p:p,m:hasM?d2.m120[ix]:null,o:o,ev:(o!=null?p*o:null),b:bought[k]?1:(plan[k]?2:0)};
+    var p=d2.p120[ix],o=hasO?d2.o120[ix]:null,c=hasC?d2.c120[ix]:null,fh=hasF?d2.f120[ix]:null,px=(fh!=null?fh:o);
+    return {k:k,ix:ix,p:p,m:hasM?d2.m120[ix]:null,o:o,c:c,f:fh,fr:(fh!=null&&o?fh/o:null),r:(c!=null&&o?c/o:null),ev:(px!=null?p*px:null),b:bought[k]?1:(plan[k]?2:0)};
   });
   var qmax=0;rows.forEach(function(t){qmax=Math.max(qmax,t.p,t.m||0);});
   var qcap=Math.max(5,Math.ceil(qmax*100/5)*5);
   P120.data[key]={rows:rows,qcap:qcap,s:d2.s};
-  return '<div class="stmini" style="margin:8px 0 6px">p_final 120通り ── 上=モデル / 下=市場の出現率(T-4オッズ) (右端='+qcap+'% ── 縦線=5%刻み / ●緑=購入 ●橙=予定)</div>'+
+  return '<div class="stmini" style="margin:8px 0 6px">p_final 120通り'+(d2.psrc==='A2'?'(本番モデル A2)':'')+' ── 上=モデル / 下=市場の出現率(T-4オッズ)。EV='+(hasF?'推論×予測価格(A2 は 1.14 以上を買う)':'推論×T-4オッズ')+'、2 行目=T-4 → 予測価格 → 確定オッズ(×は T-4 との比) (右端='+qcap+'% ── 縦線=5%刻み / ●緑=購入 ●橙=予定)</div>'+
     '<div id="p120c-'+key+'">'+p120Controls()+'</div>'+
     '<div id="p120-'+key+'" class="bw-wrap" style="max-height:80vh;overflow-y:auto">'+p120List(key)+'</div>';
 }
@@ -2307,7 +2307,8 @@ function p120List(key){
         (t.m!=null?'<div title="市場の出現率" style="position:absolute;bottom:2px;height:35%;left:0;width:'+(t.m*100/qcap*100).toFixed(2)+'%;background:#8a96a8;opacity:.75"></div>':'')+
       '</div>'+
       '<span class="val" style="width:112px;white-space:nowrap;font-size:10px">'+(t.p*100).toFixed(2)+'%'+(t.m!=null?'<span style="color:'+(t.p>t.m?'#4fe08e':'#8a96a8')+'"> / '+(t.m*100).toFixed(2)+'%</span>':'')+'</span>'+
-      '<span class="val" style="width:104px;white-space:nowrap;font-size:10px;color:'+(t.ev!=null&&t.ev>=1.1?'#ffb454':'var(--ink)')+'">'+(t.ev!=null?'EV '+t.ev.toFixed(2):'')+(t.o!=null?' <span style="opacity:.6">'+t.o+'倍</span>':'')+'</span></div>';
+      '<span class="val" style="width:104px;white-space:nowrap;font-size:10px;color:'+(t.ev!=null&&t.ev>=1.14?'#ffb454':'var(--ink)')+'">'+(t.ev!=null?'EV '+t.ev.toFixed(2):'')+(t.o!=null?' <span style="opacity:.6">'+t.o+'倍</span>':'')+'</span></div>'+
+      '<div style="margin:-5px 0 8px 46px;font:10px ui-monospace,Consolas,monospace;opacity:.85">'+(t.ev!=null?'<span style="color:'+(t.ev>=1.14?'#ffb454':'var(--ink)')+'">EV '+t.ev.toFixed(2)+'</span> · ':'')+'T-4 '+(t.o!=null?t.o+'倍':'—')+' → 予測 '+(t.f!=null?t.f+'倍 <span style="color:'+(t.fr<1?'#ff8f8f':'#4fe08e')+'">×'+t.fr.toFixed(2)+'</span>':'—')+' → 確定 '+(t.c!=null?t.c+'倍 <span style="color:'+(t.r<1?'#ff8f8f':'#4fe08e')+'">×'+t.r.toFixed(2)+'</span>':'—')+'</div>';
   });
   return h;
 }

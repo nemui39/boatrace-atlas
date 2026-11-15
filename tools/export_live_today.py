@@ -260,6 +260,67 @@ def adapt_seedavg10(d, admission=None):
     return d
 
 
+S2_LIVE = "/home/sub/s2_live_service/live"
+FINAL_FETCH_PER_RUN = 6
+
+
+def attach_a2(day, hd, races, now):
+    """本番の A2(11/15〜)の確率・T−4 オッズと、締切後の確定オッズを detail に載せる(読み取りだけ)。
+
+    p120 = A2 の出現率(sub の races/<rid>.npz の p_A)、f120 = 予測価格(fhat)、o120 = そのとき使った T−4 オッズ、m120 = その逆数の正規化、
+    c120 = 確定オッズ(公式の finalodds=1 の版だけ。締切の 3 分後から取り、1 回の実行で FINAL_FETCH_PER_RUN 本まで)。
+    npz の並びは KUMI_ORDER_120 と同じ(odds_t4 で照合済み)。npz が無いレースは元の表示のまま。
+    """
+    import numpy as np
+    src, fin = day / "s2_races", day / "final_odds3t"
+    src.mkdir(exist_ok=True); fin.mkdir(exist_ok=True)
+    rsync(f"{SUB}:{S2_LIVE}/{hd}/races/*.npz", src)
+    budget = FINAL_FETCH_PER_RUN
+    for r in races:
+        d = r.get("detail")
+        if not isinstance(d, dict):
+            continue
+        f = src / f"{r['id']}.npz"
+        if f.exists():
+            try:
+                with np.load(f, allow_pickle=False) as z:
+                    pa, od, fh = z["p_A"].astype(float), z["odds_t4"].astype(float), z["fhat"].astype(float)
+            except Exception:
+                pa = od = fh = None
+            if pa is not None and pa.shape == (120,) and od.shape == (120,) and np.isfinite(pa).all():
+                inv = np.where(od > 0, 1.0 / np.where(od > 0, od, 1.0), 0.0)
+                d["p120"] = [round(float(x), 6) for x in pa]
+                d["o120"] = [round(float(x), 1) if x > 0 else None for x in od]
+                d["m120"] = [round(float(x), 6) for x in inv / (inv.sum() or 1.0)]
+                d["t5"] = [{"k": KUMI_ORDER_120[i], "p": round(float(pa[i]), 4)} for i in np.argsort(-pa)[:30]]
+                if fh.shape == (120,):  # 予測価格(確定オッズの予測)。A2 の EV = 出現率 × 予測価格(本番の券の ev と一致を確認済み)
+                    d["f120"] = [round(float(x), 1) if np.isfinite(x) and x > 0 else None for x in fh]
+                d["psrc"] = "A2"
+        try:
+            _, jcd, rno = r["id"].split("_")
+            hh, mm = map(int, str(r.get("deadline") or "").split(":"))
+        except ValueError:
+            continue
+        g = fin / f"venue_{jcd}_race_{int(rno):02d}_odds3t.json"
+        if not g.exists() and budget > 0 and (now.hour * 60 + now.minute) - (hh * 60 + mm) >= 3:
+            budget -= 1
+            sys.path.insert(0, str(STACK / "scripts"))
+            try:
+                from live_fetch import fetch_odds3t
+                x = fetch_odds3t(hd, jcd, int(rno), fin)
+                if not x or str(x.get("finalodds")) != "1":
+                    g.unlink(missing_ok=True)
+            except Exception:
+                g.unlink(missing_ok=True)
+        if g.exists():
+            try:
+                lst = json.load(open(g))["maindata"]["odds3tlist"]
+                by = {str(x["kumi"]): fnum(x["odds"]) for x in lst}
+                d["c120"] = [by.get(k) if (by.get(k) or 0) > 0 else None for k in KUMI_ORDER_120]
+            except Exception:
+                pass
+
+
 def bets_dir(eng):
     return BETS_DIR_ALIAS.get(eng, f"{eng}_bets")
 
@@ -787,6 +848,7 @@ def main():
 
     races.extend(missing_race_rows(races, sched, day, engines, receipts, now))
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
+    attach_a2(day, hd, races, datetime.datetime.now())
 
     # システムランプ: bet-server状態 / 朝バッチ / 推論の鮮度
     sysd = {}

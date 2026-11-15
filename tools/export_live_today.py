@@ -276,17 +276,32 @@ def attach_a2(day, hd, races, now):
     src.mkdir(exist_ok=True); fin.mkdir(exist_ok=True)
     rsync(f"{SUB}:{S2_LIVE}/{hd}/races/*.npz", src)
     budget = FINAL_FETCH_PER_RUN
+    # 11/16: 買った券の「期待と実績」。的中の期待数 = 買った券の出現率の合計、払戻の期待 = 掛金 × 出現率 × 予測価格。
+    ex = {"races": 0, "tickets": 0, "stake": 0, "hits": 0.0, "p_zero": 1.0, "payout": 0.0, "settled_races": 0, "settled_hits": 0.0, "actual_hits": 0, "unknown": 0}
+    pos120 = {k: i for i, k in enumerate(KUMI_ORDER_120)}
     for r in races:
         d = r.get("detail")
         if not isinstance(d, dict):
             continue
         f = src / f"{r['id']}.npz"
+        pa = od = fh = None
         if f.exists():
             try:
                 with np.load(f, allow_pickle=False) as z:
                     pa, od, fh = z["p_A"].astype(float), z["odds_t4"].astype(float), z["fhat"].astype(float)
             except Exception:
                 pa = od = fh = None
+        if r.get("bets") and not r.get("obs"):
+            if pa is None or pa.shape != (120,) or any(str(b.get("k")) not in pos120 for b in r["bets"]):
+                ex["unknown"] += 1
+            else:
+                idx = [pos120[str(b["k"])] for b in r["bets"]]; q = float(sum(pa[i] for i in idx))
+                ex["races"] += 1; ex["tickets"] += len(idx); ex["stake"] += int(sum(b.get("stake") or 0 for b in r["bets"]))
+                ex["hits"] += q; ex["p_zero"] *= max(0.0, 1.0 - q)
+                if fh is not None and fh.shape == (120,):
+                    ex["payout"] += float(sum((b.get("stake") or 0) * pa[i] * fh[i] for b, i in zip(r["bets"], idx)))
+                if r.get("win"):
+                    ex["settled_races"] += 1; ex["settled_hits"] += q; ex["actual_hits"] += int(bool(r.get("hit")))
             if pa is not None and pa.shape == (120,) and od.shape == (120,) and np.isfinite(pa).all():
                 inv = np.where(od > 0, 1.0 / np.where(od > 0, od, 1.0), 0.0)
                 d["p120"] = [round(float(x), 6) for x in pa]
@@ -319,6 +334,10 @@ def attach_a2(day, hd, races, now):
                 d["c120"] = [by.get(k) if (by.get(k) or 0) > 0 else None for k in KUMI_ORDER_120]
             except Exception:
                 pass
+    for k in ("hits", "p_zero", "settled_hits"):
+        ex[k] = round(ex[k], 3)
+    ex["payout"] = int(round(ex["payout"]))
+    return ex
 
 
 def bets_dir(eng):
@@ -848,7 +867,7 @@ def main():
 
     races.extend(missing_race_rows(races, sched, day, engines, receipts, now))
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
-    attach_a2(day, hd, races, datetime.datetime.now())
+    expect = attach_a2(day, hd, races, datetime.datetime.now())
 
     # システムランプ: bet-server状態 / 朝バッチ / 推論の鮮度
     sysd = {}
@@ -925,6 +944,7 @@ def main():
         "n_bet_races": len({r["id"] for r in races if r["bets"]}),
         "n_bet_tickets": sum(len(r["bets"]) for r in races if not r.get("obs")),  # 買った券の合計(レース数とは別)
         "total": total,
+        "expect": expect,
         "lamp": lamp_thresholds(day),
         "sys": sysd,
         "races": races,

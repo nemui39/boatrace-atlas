@@ -2160,7 +2160,8 @@ function loadLive(){
     document.getElementById("live-sum").textContent=
       d.n_processed+"/"+d.n_scheduled+" races \u2500 bet "+d.n_bet_races+"R"+(d.n_bet_tickets!=null?" / "+d.n_bet_tickets+"\u5238":"")+
       " \u2500 PnL "+(d.total.pnl>=0?"+":"")+d.total.pnl.toLocaleString("ja-JP")+
-      "\u5186 \u2500 upd "+d.generated_at.slice(11,16);
+      "\u5186"+(d.expect&&d.expect.races?" \u2500 的中の期待 "+Number(d.expect.hits).toFixed(2)+"(0 的中 "+Math.round(d.expect.p_zero*100)+"%)"+(d.expect.settled_races?" 実績 "+d.expect.actual_hits+"/"+Number(d.expect.settled_hits).toFixed(2):""):"")+
+      " \u2500 upd "+d.generated_at.slice(11,16);
     var hp=document.getElementById("hud-pnl");
     var anyProv=(d.races||[]).some(function(r){return r.prov;});
     hp.textContent=(anyProv?"\u2248":"")+(d.total.pnl>=0?"+":"\u2212")+Math.abs(d.total.pnl).toLocaleString("ja-JP")+"\u5186";

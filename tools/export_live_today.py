@@ -237,6 +237,9 @@ def adapt_seedavg10(d, admission=None):
         d["bets_final"] = [{"kumi": b["kumi"], "odds": b["odds"], "ev": b["ev"], "p_model": b["p"],
                             "stake": (staked.get(b["kumi"]) or {}).get("stake") or b.get("flat100_reference_yen")}
                            for b in d.get("bets_flat100_reference") or []]
+        # 複数系統の運用(LIVE v2〜v4)では、買う券は dispatcher の admission が決める。admission が無い間の
+        # 「現行の条件(EV≥1.10)だけ通った券」は送信予定ではないので、予定の買い目として出さない(2026-11-16)。
+        d["_reference_only"] = SEEDAVG_LABEL.startswith("LIVE v")
     inv = [1.0 / o if o > 0 else 0.0 for o in odds]
     tot = sum(inv) or 1.0
     arms = [a for a in (
@@ -740,9 +743,13 @@ def main():
             if is_observer:
                 bets = []  # shadowの疑似買い目を実弾成績へ混ぜない
             planned = []
+            awaiting = False
             if bets and amts is None:
                 # Source stake is a research reference, never an actual debit.
-                planned = [{k: v for k, v in bet.items() if k != "stake"} for bet in bets]
+                if d.get("_reference_only"):
+                    awaiting = True  # dispatcher の判定待ち(現行の条件だけ通過)。送信予定の券ではない
+                else:
+                    planned = [{k: v for k, v in bet.items() if k != "stake"} for bet in bets]
                 bets = []
             # debug全フィールドの自動吸い上げ (スカラー+1段ネスト辞書)
             SKIP = {"max_ev", "max_ev_kumi", "max_ev_odds", "ev_median_120",
@@ -803,7 +810,8 @@ def main():
                 "deadline": sc.get("deadline"),
                 "verdict": ("observe" if is_observer else
                             ("blocked:" + blk if (blk and not bets) else
-                             ("bet" if bets else ("pending_submission" if planned else dbg.get("max_ev_gate", "no_ev"))))),
+                             ("bet" if bets else ("pending_submission" if planned else
+                                                  ("awaiting_dispatch" if awaiting else dbg.get("max_ev_gate", "no_ev")))))),
                 "max_ev": dbg.get("max_ev"), "max_ev_kumi": dbg.get("max_ev_kumi"),
                 "bets": bets,
                 "planned_bets": planned,

@@ -77,7 +77,7 @@ const $=id=>document.getElementById(id),yen=n=>'¥'+Number(n||0).toLocaleString(
 const mq=matchMedia('(min-width:900px)');
 let data=null,venue='all',current='overview',origin='loading',focused=null,refreshing=false;
 const combo=k=>'<span class="combo" aria-label="'+esc(String(k).split('').join('-'))+'">'+String(k).split('').map(n=>'<span class="boat b'+esc(n)+'">'+esc(n)+'</span>').join('')+'</span>';
-const rows=()=>(data?.races||[]).filter(r=>!r.obs&&!(r.verdict==='blocked:sa10_rule_skip'&&!(r.bets||[]).length)).sort((a,b)=>String(b.deadline).localeCompare(String(a.deadline))||a.id.localeCompare(b.id));
+const rows=()=>(data?.races||[]).filter(r=>!r.obs&&!((r.verdict==='blocked:sa10_rule_skip'||r.verdict==='awaiting_dispatch')&&!(r.bets||[]).length)).sort((a,b)=>String(b.deadline).localeCompare(String(a.deadline))||a.id.localeCompare(b.id));
 const bought=r=>(r.bets||[]).length>0;
 const raceStake=r=>(r.bets||[]).reduce((sum,b)=>sum+Number(b.stake||0),0);
 const kumiKey=k=>String(k??'').replace(/[^1-6]/g,'');

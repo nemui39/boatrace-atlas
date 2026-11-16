@@ -282,6 +282,7 @@ def attach_a2(day, hd, races, now):
     # 11/16: 買った券の「期待と実績」。的中の期待数 = 買った券の出現率の合計、払戻の期待 = 掛金 × 出現率 × 予測価格。
     ex = {"races": 0, "tickets": 0, "stake": 0, "hits": 0.0, "p_zero": 1.0, "payout": 0.0, "settled_races": 0, "settled_hits": 0.0, "actual_hits": 0, "unknown": 0}
     pos120 = {k: i for i, k in enumerate(KUMI_ORDER_120)}
+    seen_a2 = False
     for r in races:
         d = r.get("detail")
         if not isinstance(d, dict):
@@ -294,6 +295,16 @@ def attach_a2(day, hd, races, now):
                     pa, od, fh = z["p_A"].astype(float), z["odds_t4"].astype(float), z["fhat"].astype(float)
             except Exception:
                 pa = od = fh = None
+        if pa is not None and fh is not None and pa.shape == (120,) and fh.shape == (120,) and od.shape == (120,):
+            # 行に出す最大 EV は、本番の買う条件と同じ計算にする(A2 の出現率 × 予測価格、4 分前 300 倍以下)。
+            # 現行(確率 × 4 分前のオッズ、線 1.10)の数字は買う条件と関係が無いので出さない(2026-11-16)。
+            okv = np.isfinite(pa) & np.isfinite(fh) & (od > 0) & (np.round(od, 1) <= 300)
+            seen_a2 = True; r["max_ev_src"] = "A2"
+            if okv.any():
+                evv = np.where(okv, pa * fh, -np.inf); i0 = int(evv.argmax())
+                r["max_ev"], r["max_ev_kumi"] = round(float(evv[i0]), 4), KUMI_ORDER_120[i0]
+            else:
+                r["max_ev"] = r["max_ev_kumi"] = None
         if r.get("bets") and not r.get("obs"):
             if pa is None or pa.shape != (120,) or any(str(b.get("k")) not in pos120 for b in r["bets"]):
                 ex["unknown"] += 1
@@ -337,6 +348,11 @@ def attach_a2(day, hd, races, now):
                 d["c120"] = [by.get(k) if (by.get(k) or 0) > 0 else None for k in KUMI_ORDER_120]
             except Exception:
                 pass
+    if seen_a2:
+        # A2 が動いている日は、A2 の記録が無い行(未処理など)に別の計算の EV を出さない
+        for r in races:
+            if r.get("eng") == SEEDAVG_ENGINE and r.get("max_ev_src") != "A2":
+                r["max_ev"] = r["max_ev_kumi"] = None
     for k in ("hits", "p_zero", "settled_hits"):
         ex[k] = round(ex[k], 3)
     ex["payout"] = int(round(ex["payout"]))

@@ -1565,6 +1565,8 @@ var TRACES=[{"id":"20260529_15_02","date":"20260529","venue":"丸亀","jcd":"15"
 var GATE_JP={withdrawal_skip:"欠場あり・推論記録なし ── 見送り",missing_processing_record:"処理記録なし ── 理由未確認",seedavg10_no_ticket:"EV≥1.10・300倍以下の券なし","blocked:sa10_deadline":"締切前の安全時間不足 ── 送信見送り","blocked:sa10_cash_short":"当日資金の不足 ── 送信見送り","blocked:sa10_sender_blocked":"送信側の安全条件で遮断 ── 実弾なし","blocked:sa10_not_eligible":"前向き条件を満たさない出力 ── 送信なし","blocked:sa10_error":"dispatcherエラー ── 実弾なし","blocked:submitted_error":"送信失敗(投票サーバーのエラー)── 未購入","blocked:submitted_failed":"送信失敗 ── 未購入","blocked:submitted_timeout":"送信結果が未確認 ── 照合待ち(再投票なし)","blocked:submit_error":"送信結果が未確認 ── 照合待ち(再投票なし)",pending_submission:"買い目あり・送信結果を確認中",outside_odds_bands:"最大EVの買い目がオッズ帯域外",no_ev:"EV基準未達",observe:"観測専用 ── 実弾送信なし",passes_bet_rules:"ルール通過も合意/受理で不採用","blocked:capital_guard_daily_cap":"資金ガードが送信を遮断 ── 実弾なし","blocked:no_receipt":"シグナルあり・実送信レシート未確認 ── 成績非算入",union3_no_ticket:"Unionの購入条件を満たす券なし","blocked:union3_deadline":"締切前の安全時間不足 ── 送信見送り","blocked:union3_sender_blocked":"送信側の安全条件で遮断 ── 実弾なし","blocked:union3_blocked":"Union送信遮断 ── 実弾なし","blocked:union3_rule_skip":"Unionの購入対象なし","blocked:sa10_rule_skip":"A の購入条件(期待値 1.16 以上)を満たす券なし ── 見送り"};
 var GATE_S={withdrawal_skip:"欠場・見送り",missing_processing_record:"処理記録なし",seedavg10_no_ticket:"券なし","blocked:sa10_deadline":"締切間際","blocked:sa10_cash_short":"資金不足","blocked:sa10_sender_blocked":"送信遮断","blocked:sa10_not_eligible":"対象外","blocked:sa10_error":"エラー","blocked:submitted_error":"送信失敗","blocked:submitted_failed":"送信失敗","blocked:submitted_timeout":"送信未確認","blocked:submit_error":"送信未確認",pending_submission:"送信確認中",outside_odds_bands:"帯域外",no_ev:"EV未達",observe:"観測",passes_bet_rules:"不採用",union3_no_ticket:"券なし","blocked:union3_deadline":"締切間際","blocked:union3_sender_blocked":"送信遮断","blocked:union3_blocked":"送信遮断","blocked:union3_rule_skip":"券なし","blocked:sa10_rule_skip":"A の対象なし","blocked:no_receipt":"送信未確認"};
 var ENG_TAG={union3_formal_kl_projection_delta015:"UNION6",seedavg10:"SEEDAVG10"};
+/* 「A の対象なし」(現行の条件だけ通り、A は買わないレース)は当日フィードに出さない。集計・日程の帯・詳細のデータはそのまま(2026-11-16) */
+function feedHidden(r){return r.verdict==="blocked:sa10_rule_skip"&&!(r.bets||[]).length;}
 function gateShort(v){
   if(!v)return "";
   if(GATE_S[v])return GATE_S[v];
@@ -2153,7 +2155,8 @@ function loadLive(){
   }).then(function(d){
     regEngines(d);
     document.getElementById("active-strategy").textContent="現在の稼働："+Object.keys(d.engine_labels||{}).map(function(e){return d.engine_labels[e];}).join(" / ")+" ── 詳細は選択したレースの実行記録";
-    latestLiveId=d.races.length?d.races[d.races.length-1].id:null;
+    var feed=d.races.filter(function(r){return !feedHidden(r);});
+    latestLiveId=feed.length?feed[feed.length-1].id:null;
     var badge=document.getElementById("live-badge");
     badge.innerHTML='<span class="lb-dot"></span>LIVE '+d.date.slice(4,6)+"/"+d.date.slice(6);
     badge.className="lb on";
@@ -2171,7 +2174,7 @@ function loadLive(){
     renderEngStats(d);
     renderSlump(d);
     lampUpdate(d);
-    var rows=d.races.slice().reverse().map(function(r){
+    var rows=feed.slice().reverse().map(function(r){
       var vfull=(r.bets.length?
         "BET "+r.bets.map(function(b){return fmtK(b.k)+"("+b.ev+")";}).join(" "):
         "\u898b\u9001\u308a "+(GATE_JP[r.verdict]||r.verdict)+(r.max_ev?" / maxEV "+r.max_ev:"")).replace(/"/g,"");
@@ -2196,7 +2199,7 @@ function loadLive(){
     renderToday(d);
     document.getElementById("live-feed").innerHTML=rows||
       '<div class="lf-row"><span class="lf-verdict">\u672c\u65e5\u306e\u51e6\u7406\u5f85\u3061 \u2500 \u521d\u56de\u7de0\u5207\u307e\u3067\u5f85\u6a5f\u4e2d ('+d.n_scheduled+'R\u4e88\u5b9a)</span></div>';
-    if(!liveSel&&d.races.length)liveSel=d.races[d.races.length-1].id;
+    if(!liveSel&&feed.length)liveSel=feed[feed.length-1].id;
     Array.prototype.forEach.call(document.getElementById("live-feed").children,function(x){
       x.classList.toggle("on",x.getAttribute("data-id")===liveSel);
     });

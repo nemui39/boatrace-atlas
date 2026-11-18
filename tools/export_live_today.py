@@ -534,12 +534,25 @@ def settle_simple(r, rr, total):
 
 
 
+CANCEL_LINE = re.compile(r"CANCELLED: \w+ jcd=(\d+) rno=(\d+)")
+
+
+def cancelled_races(day):
+    """sub の取得ログ(公式の応答が「該当レースは中止になりました」のときに live_fetch が残す行)から、中止のレース (場, R) を読む。読めなければ空。"""
+    try:
+        text = (day / 'cancel_status' / 'odds3t_multisnapshot_diagnostics.log').read_text(errors='replace')
+    except OSError:
+        return set()
+    return {(j.zfill(2), int(n)) for j, n in CANCEL_LINE.findall(text)}
+
+
 def missing_race_rows(races, sched, day, engines, receipts, now):
     """Retain passed deadlines without inventing predictions, purchases or P&L."""
     if SEEDAVG_ENGINE not in engines:
         return []
     seen = {r['id'] for r in races if r['eng'] == SEEDAVG_ENGINE}
     added = []
+    cancelled = cancelled_races(day)
     for rid, sc in sched.items():
         if rid in seen or (SEEDAVG_ENGINE, rid) in receipts:
             continue
@@ -555,9 +568,12 @@ def missing_race_rows(races, sched, day, engines, receipts, now):
         absent = sorted({int(t['teino']) for t in (bi.get('maindata') or {}).get('teiinfolist', [])
                          if same_page and str(t.get('absentflag')) == '1' and str(t.get('teino')) in ('1','2','3','4','5','6')})
         reason = ('・'.join(str(n) + '号艇' for n in absent) + 'が欠場。推論・購入の記録はありません。') if absent else '締切を過ぎていますが、推論・購入の記録がありません。理由は未確認です。'
+        called_off = (str(sc['jcd']).zfill(2), int(sc['rno'])) in cancelled
+        if called_off:
+            absent = []; reason = 'レースは中止です(公式のオッズの応答で確認)。推論・購入の記録はありません。'
         added.append(dict(id=rid, eng=SEEDAVG_ENGINE, strategy_label=SEEDAVG_LABEL, obs=False,
                           venue=sc.get('venue_name'), rno=sc['rno'], deadline=sc['deadline'],
-                          verdict='withdrawal_skip' if absent else 'missing_processing_record',
+                          verdict='race_cancelled' if called_off else 'withdrawal_skip' if absent else 'missing_processing_record',
                           skip_reason=reason, absent_boats=absent, status_only=True,
                           bets=[], planned_bets=[], win=None, pnl=None, settled=False, detail={}))
     return added
@@ -633,6 +649,8 @@ def main():
         status_dir = day / "beforeinfo_status"
         status_dir.mkdir(exist_ok=True)
         rsync(f"{SUB}:/home/sub/s2_live_service/live/{hd}/live_bi/venue_*_beforeinfo.json", status_dir)
+        (day / "cancel_status").mkdir(exist_ok=True)
+        rsync(f"{SUB}:{REMOTE}/{hd}/logs/odds3t_multisnapshot_diagnostics.log", day / "cancel_status")
 
     settle = {}
     total = {"stake": 0, "payout": 0, "pnl": 0, "hits": 0}

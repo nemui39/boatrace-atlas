@@ -568,6 +568,9 @@ def missing_race_rows(races, sched, day, engines, receipts, now):
     seen = {r['id'] for r in races if r['eng'] == SEEDAVG_ENGINE}
     added = []
     cancelled = cancelled_races(day)
+    first_off = {}  # 場ごとの、中止の応答があった最初の R。中止が出たら同じ場のそれ以降のレースは全部中止(2026-11-18 ユーザー確認)
+    for j, n in cancelled:
+        first_off[j] = min(n, first_off.get(j, n))
     for rid, sc in sched.items():
         if rid in seen or (SEEDAVG_ENGINE, rid) in receipts:
             continue
@@ -583,7 +586,7 @@ def missing_race_rows(races, sched, day, engines, receipts, now):
         absent = sorted({int(t['teino']) for t in (bi.get('maindata') or {}).get('teiinfolist', [])
                          if same_page and str(t.get('absentflag')) == '1' and str(t.get('teino')) in ('1','2','3','4','5','6')})
         reason = ('・'.join(str(n) + '号艇' for n in absent) + 'が欠場。推論・購入の記録はありません。') if absent else '締切を過ぎていますが、推論・購入の記録がありません。理由は未確認です。'
-        called_off = (str(sc['jcd']).zfill(2), int(sc['rno'])) in cancelled or sc.get('cancelled') is True  # 予定表の印は、取得が止まった後のレース(夕方の予定表の更新が付ける)も拾う
+        called_off = (str(sc['jcd']).zfill(2), int(sc['rno'])) in cancelled or sc.get('cancelled') is True or int(sc['rno']) > first_off.get(str(sc['jcd']).zfill(2), 99)  # 予定表の印は、取得が止まった後のレース(夕方の予定表の更新が付ける)も拾う
         if called_off:
             absent = []; reason = 'レースは中止です(公式の応答で確認)。推論・購入の記録はありません。'
         added.append(dict(id=rid, eng=SEEDAVG_ENGINE, strategy_label=SEEDAVG_LABEL, obs=False,

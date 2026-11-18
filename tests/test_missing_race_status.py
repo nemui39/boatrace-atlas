@@ -19,4 +19,5 @@ class MissingRaceStatus(unittest.TestCase):
    c=p/'cancel_status/odds3t_multisnapshot_diagnostics.log';c.parent.mkdir();c.write_text('  CANCELLED: odds3t jcd=14 rno=5 (x)\n');self.assertEqual(rows()[0]['verdict'],'missing_processing_record')
    c.write_text('  CANCELLED: odds3t jcd=14 rno=4 (※ 該当レースは中止になりました。)\n');row=rows()[0];self.assertEqual(row['verdict'],'race_cancelled');self.assertTrue(row['status_only']);self.assertEqual(row['bets'],[]);self.assertIn('中止',row['skip_reason'])
    c.unlink();self.assertEqual(rows()[0]['verdict'],'missing_processing_record');sc['cancelled']=True;row=rows()[0];self.assertEqual(row['verdict'],'race_cancelled');self.assertEqual(row['bets'],[])
+   sc['cancelled']=False;c.write_text('  CANCELLED: odds3t jcd=14 rno=2 (x)\n');self.assertEqual(rows()[0]['verdict'],'race_cancelled');c.write_text('  CANCELLED: odds3t jcd=15 rno=2 (x)\n');self.assertEqual(rows()[0]['verdict'],'missing_processing_record')
 if __name__=='__main__':unittest.main()

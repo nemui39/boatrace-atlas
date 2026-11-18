@@ -134,7 +134,7 @@ function predictionPanel(r){
  const hasAll=Array.isArray(r.detail?.p120)&&r.detail.p120.length===120;
  const filter=(key,label)=>'<label>'+label+'<select data-pred-filter="'+key+'" aria-label="'+label+'の艇番"><option value="0">全</option>'+[1,2,3,4,5,6].map(n=>'<option value="'+n+'"'+(predictionState[key]===String(n)?' selected':'')+'>'+n+'</option>').join('')+'</select></label>';
  return '<section class="sheet-section" id="predictions"><h3>3連単 · '+(hasAll?'全120通り':'取得できた予測')+'</h3>'+
- '<p class="pred-note">推論＝'+(r.detail?.psrc==='A2'?'本番モデル A2 の':'モデルの')+'出現確率、市場＝T−4オッズの逆数を正規化した出現確率。'+(r.detail?.f120?'予測＝確定オッズの予測(予測価格)。EV＝推論確率 × 予測価格で、A2 は 1.14 以上を買います。':'EV＝推論確率 × T−4オッズ。')+'確定＝締切後の確定オッズ。予測比・確定比はそれぞれ T−4 で割った値(1 未満は値下がり)。</p>'+
+ '<p class="pred-note">推論＝'+(r.detail?.psrc==='A2+オリ展'?'本番モデル A2(オリジナル展示の補正つき)の':r.detail?.psrc==='A2'?'本番モデル A2 の':'モデルの')+'出現確率、市場＝T−4オッズの逆数を正規化した出現確率。'+(r.detail?.f120?'予測＝確定オッズの予測(予測価格)。EV＝推論確率 × 予測価格で、A2 は 1.14 以上を買います。':'EV＝推論確率 × T−4オッズ。')+'確定＝締切後の確定オッズ。予測比・確定比はそれぞれ T−4 で割った値(1 未満は値下がり)。</p>'+
  (!hasAll?'<p class="pred-note">このレースには120通りのデータがありません。取得できた予測をすべて表示します。未取得の値は「—」です。</p>':'')+
  '<div class="pred-sort" role="group" aria-label="予測の並べ替え">'+predictionSorts.map(([key,label])=>'<button type="button" data-pred-sort="'+key+'" aria-pressed="'+(predictionState.sort===key)+'">'+label+'</button>').join('')+'</div>'+
  '<div class="pred-filter">'+filter('first','1着')+filter('second','2着')+'</div><p class="pred-count" id="prediction-count" role="status"></p><div id="prediction-list"></div></section>';

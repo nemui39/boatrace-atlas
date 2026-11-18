@@ -1926,8 +1926,8 @@ function renderLiveDetail(wid){
     b+='<div class="kvgrid" style="margin-top:10px">'+
       kv("判定",r.bets.length?"BET "+r.bets.length+"点":((r.planned_bets||[]).length?"送信確認中":"PASS"))+
       kv("A2 最大EV(買う条件の計算)",r.max_ev_src==="A2"&&r.max_ev!=null?r.max_ev+" @"+fmtK(r.max_ev_kumi||""):"-")+
-      kv((d2.arms||[]).length+"腕最大EV(現行の計算)",d2.mev!=null?d2.mev+" @"+fmtK(d2.mevk||""):"-")+
-      kv("EV med/p90",d2.med!=null?d2.med+" / "+d2.p90:"-")+
+      (d2.psrc?"":kv((d2.arms||[]).length+"腕最大EV(現行の計算)",d2.mev!=null?d2.mev+" @"+fmtK(d2.mevk||""):"-")+
+      kv("EV med/p90",d2.med!=null?d2.med+" / "+d2.p90:"-"))+
       xrows+"</div>";
     /* 買い目 or PASS */
     if(r.bets.length){
@@ -2288,7 +2288,7 @@ function p120Block(r,d2){
   var qmax=0;rows.forEach(function(t){qmax=Math.max(qmax,t.p,t.m||0);});
   var qcap=Math.max(5,Math.ceil(qmax*100/5)*5);
   P120.data[key]={rows:rows,qcap:qcap,s:d2.s};
-  return '<div class="stmini" style="margin:8px 0 6px">p_final 120通り'+(d2.psrc==='A2'?'(本番モデル A2)':'')+' ── 上=モデル / 下=市場の出現率(T-4オッズ)。EV='+(hasF?'推論×予測価格(A2 は 1.14 以上を買う)':'推論×T-4オッズ')+'、2 行目=T-4 → 予測価格 → 確定オッズ(×は T-4 との比) (右端='+qcap+'% ── 縦線=5%刻み / ●緑=購入 ●橙=予定)</div>'+
+  return '<div class="stmini" style="margin:8px 0 6px">p_final 120通り'+(d2.psrc==='A2+オリ展'?'(本番モデル A2 + オリジナル展示の補正 = 買い目を決めた確率)':d2.psrc==='A2'?'(本番モデル A2)':'')+' ── 上=モデル / 下=市場の出現率(T-4オッズ)。EV='+(hasF?'推論×予測価格(A2 は 1.14 以上を買う)':'推論×T-4オッズ')+'、2 行目=T-4 → 予測価格 → 確定オッズ(×は T-4 との比) (右端='+qcap+'% ── 縦線=5%刻み / ●緑=購入 ●橙=予定)</div>'+
     '<div id="p120c-'+key+'">'+p120Controls()+'</div>'+
     '<div id="p120-'+key+'" class="bw-wrap" style="max-height:80vh;overflow-y:auto">'+p120List(key)+'</div>';
 }

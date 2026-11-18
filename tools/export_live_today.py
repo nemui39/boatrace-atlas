@@ -278,6 +278,8 @@ def attach_a2(day, hd, races, now):
     src, fin = day / "s2_races", day / "final_odds3t"
     src.mkdir(exist_ok=True); fin.mkdir(exist_ok=True)
     rsync(f"{SUB}:{S2_LIVE}/{hd}/races/*.npz", src)
+    tsrc = day / "s2_oriten_tilt"; tsrc.mkdir(exist_ok=True)
+    rsync(f"{SUB}:{S2_LIVE}/{hd}/oriten_tilt/*.npz", tsrc)
     budget = FINAL_FETCH_PER_RUN
     # 11/16: 買った券の「期待と実績」。的中の期待数 = 買った券の出現率の合計、払戻の期待 = 掛金 × 出現率 × 予測価格。
     ex = {"races": 0, "tickets": 0, "stake": 0, "hits": 0.0, "p_zero": 1.0, "payout": 0.0, "settled_races": 0, "settled_hits": 0.0, "actual_hits": 0, "unknown": 0}
@@ -295,6 +297,16 @@ def attach_a2(day, hd, races, now):
                     pa, od, fh = z["p_A"].astype(float), z["odds_t4"].astype(float), z["fhat"].astype(float)
             except Exception:
                 pa = od = fh = None
+        # オリジナル展示の後からの補正(本番の買い目はこの確率で決まる。v38r2〜)。記録があるレースは補正後の確率を出す
+        tilted = False; ft = tsrc / f"{r['id']}.npz"
+        if pa is not None and ft.exists():
+            try:
+                with np.load(ft, allow_pickle=False) as z:
+                    pt = z["p_tilt"].astype(float)
+                if pt.shape == (120,) and np.isfinite(pt).all() and abs(float(pt.sum()) - 1.0) < 1e-3:
+                    pa, tilted = pt, True
+            except Exception:
+                pass
         if pa is not None and fh is not None and pa.shape == (120,) and fh.shape == (120,) and od.shape == (120,):
             # 行に出す最大 EV は、本番の買う条件と同じ計算にする(A2 の出現率 × 予測価格、4 分前 300 倍以下)。
             # 現行(確率 × 4 分前のオッズ、線 1.10)の数字は買う条件と関係が無いので出さない(2026-11-16)。
@@ -316,15 +328,18 @@ def attach_a2(day, hd, races, now):
                     ex["payout"] += float(sum((b.get("stake") or 0) * pa[i] * fh[i] for b, i in zip(r["bets"], idx)))
                 if r.get("win"):
                     ex["settled_races"] += 1; ex["settled_hits"] += q; ex["actual_hits"] += int(bool(r.get("hit")))
-            if pa is not None and pa.shape == (120,) and od.shape == (120,) and np.isfinite(pa).all():
-                inv = np.where(od > 0, 1.0 / np.where(od > 0, od, 1.0), 0.0)
-                d["p120"] = [round(float(x), 6) for x in pa]
-                d["o120"] = [round(float(x), 1) if x > 0 else None for x in od]
-                d["m120"] = [round(float(x), 6) for x in inv / (inv.sum() or 1.0)]
-                d["t5"] = [{"k": KUMI_ORDER_120[i], "p": round(float(pa[i]), 4)} for i in np.argsort(-pa)[:30]]
-                if fh.shape == (120,):  # 予測価格(確定オッズの予測)。A2 の EV = 出現率 × 予測価格(本番の券の ev と一致を確認済み)
-                    d["f120"] = [round(float(x), 1) if np.isfinite(x) and x > 0 else None for x in fh]
-                d["psrc"] = "A2"
+        # 2026-11-18: 買ったレースだけでなく、A2 の記録がある全レースで A2 の確率を出す(買い目なしのレースに現行の確率が出ていた)。現行・I30 の表示は外す
+        if pa is not None and pa.shape == (120,) and od.shape == (120,) and np.isfinite(pa).all():
+            inv = np.where(od > 0, 1.0 / np.where(od > 0, od, 1.0), 0.0)
+            d["p120"] = [round(float(x), 6) for x in pa]
+            d["o120"] = [round(float(x), 1) if x > 0 else None for x in od]
+            d["m120"] = [round(float(x), 6) for x in inv / (inv.sum() or 1.0)]
+            d["t5"] = [{"k": KUMI_ORDER_120[i], "p": round(float(pa[i]), 4)} for i in np.argsort(-pa)[:30]]
+            if fh.shape == (120,):  # 予測価格(確定オッズの予測)。A2 の EV = 出現率 × 予測価格(本番の券の ev と一致を確認済み)
+                d["f120"] = [round(float(x), 1) if np.isfinite(x) and x > 0 else None for x in fh]
+            d["psrc"] = "A2+オリ展" if tilted else "A2"
+            for k in ("s", "arms", "mev", "mevk", "mevo", "med", "p90"):  # 現行(win6 の強度・腕ごとの確率・現行の計算の EV)は出さない
+                d.pop(k, None)
         try:
             _, jcd, rno = r["id"].split("_")
             hh, mm = map(int, str(r.get("deadline") or "").split(":"))

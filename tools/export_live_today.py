@@ -583,9 +583,9 @@ def missing_race_rows(races, sched, day, engines, receipts, now):
         absent = sorted({int(t['teino']) for t in (bi.get('maindata') or {}).get('teiinfolist', [])
                          if same_page and str(t.get('absentflag')) == '1' and str(t.get('teino')) in ('1','2','3','4','5','6')})
         reason = ('・'.join(str(n) + '号艇' for n in absent) + 'が欠場。推論・購入の記録はありません。') if absent else '締切を過ぎていますが、推論・購入の記録がありません。理由は未確認です。'
-        called_off = (str(sc['jcd']).zfill(2), int(sc['rno'])) in cancelled
+        called_off = (str(sc['jcd']).zfill(2), int(sc['rno'])) in cancelled or sc.get('cancelled') is True  # 予定表の印は、取得が止まった後のレース(夕方の予定表の更新が付ける)も拾う
         if called_off:
-            absent = []; reason = 'レースは中止です(公式のオッズの応答で確認)。推論・購入の記録はありません。'
+            absent = []; reason = 'レースは中止です(公式の応答で確認)。推論・購入の記録はありません。'
         added.append(dict(id=rid, eng=SEEDAVG_ENGINE, strategy_label=SEEDAVG_LABEL, obs=False,
                           venue=sc.get('venue_name'), rno=sc['rno'], deadline=sc['deadline'],
                           verdict='race_cancelled' if called_off else 'withdrawal_skip' if absent else 'missing_processing_record',

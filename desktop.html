@@ -82,7 +82,7 @@
   #walletbox .val.g{color:var(--win);} #walletbox .val.r{color:var(--lose);}
 
   #status{
-    bottom:48px;left:32px;
+    bottom:calc(var(--dockh,37px) + 11px);left:32px;
     font-family:ui-monospace,Consolas,monospace;font-size:11.5px;letter-spacing:.28em;color:var(--mut);
   }
   #status .cursor{display:inline-block;width:8px;height:13px;background:var(--cyan);
@@ -91,7 +91,7 @@
 
   /* ============ hover card ============ */
   #hovercard{
-    position:absolute;z-index:6;pointer-events:none;min-width:210px;max-width:260px;
+    position:absolute;z-index:8;pointer-events:none;min-width:210px;max-width:260px;
     background:rgba(5,11,19,.92);border:1px solid var(--line);border-left:2px solid var(--cyan);
     padding:12px 14px;opacity:0;transform:translateY(4px);
     transition:opacity .15s ease, transform .15s ease;
@@ -106,7 +106,7 @@
 
   /* ============ venue bar ============ */
   #dock{
-    position:absolute;left:0;right:0;bottom:0;z-index:5;
+    position:absolute;left:0;right:0;bottom:0;z-index:7;
     display:flex;flex-direction:column;
     background:linear-gradient(180deg, transparent, rgba(3,6,11,.92) 32%);
   }
@@ -121,7 +121,7 @@
 
   /* ============ engine view / telemetry ============ */
   #telemetry{
-    bottom:48px;right:32px;text-align:right;
+    bottom:calc(var(--dockh,37px) + 11px);right:32px;text-align:right;
     font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.18em;
     color:var(--mut);line-height:1.9;
   }
@@ -285,7 +285,7 @@
   .verdict{font-size:15px;font-weight:900;letter-spacing:.1em;margin-bottom:10px;}
   .pipe-note{font-size:11px;color:var(--mut2);line-height:1.8;border-top:1px dashed var(--line);padding-top:14px;}
   #schedstrip{
-    display:none;gap:8px;padding:8px 16px 4px;overflow-x:auto;scrollbar-width:none;
+    display:none;flex-wrap:wrap;gap:6px 8px;padding:8px 16px 4px;overflow-x:auto;scrollbar-width:none;
     font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--mut);
   }
   #schedstrip::-webkit-scrollbar{display:none;}
@@ -2646,6 +2646,7 @@ function schedTick(){
     if(wl){wl.style.display="none";wl.innerHTML="";}
     wlIds="";WL_LINKS=[];nextRace=null;
     document.getElementById("schedstrip").innerHTML="";
+    syncDockH();
     return;
   }
   var nsec=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
@@ -2672,7 +2673,13 @@ function schedTick(){
     else items.push('<span class="sti'+(x.left<300?" due":"")+'">'+x.s.dl+" "+x.s.v+x.s.rno+'R<em>'+mmss(x.left)+"</em></span>");
   });
   document.getElementById("schedstrip").innerHTML=items.join("");
+  syncDockH();
   renderWorklog(nsec);
+}
+/* 下段の予定列が狭い幅で折り返したとき、左下の状態表示と右下の計測表示をその上へ逃がす */
+function syncDockH(){
+  var dk=document.getElementById("dock");
+  if(dk)document.documentElement.style.setProperty("--dockh",Math.max(37,dk.offsetHeight)+"px");
 }
 function openPipe(){pipeOpen=true;pipeEl.classList.add("open");loadLive();}
 function closePipe(){

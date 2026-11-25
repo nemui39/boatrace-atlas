@@ -59,6 +59,8 @@
   }
   #opsbtn:hover{color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 18px rgba(92,214,255,.25);}
   #syslamps{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;max-width:440px;}
+  /* 右上の収支欄と重なる幅では、ランプを LIVE OPS ボタンの下へ */
+  @media(max-width:1365px){.brand-in{flex-direction:column;gap:0;} #syslamps{margin-top:10px;}}
   .sl-tile{border:1px solid var(--line);background:rgba(6,12,20,.6);
     padding:7px 14px 7px 12px;position:relative;min-width:86px;}
   .sl-tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#2a3a4e;}
@@ -158,9 +160,23 @@
   .pipe-cols{display:grid;grid-template-columns:1fr;gap:0 28px;}
   @media(min-width:900px){
     .pipe-in{max-width:1880px;}
-    .main-cols{grid-template-columns:minmax(0,1fr) 780px;}
     .pipe-cols{grid-template-columns:340px minmax(0,1fr);}
     .feed-cols{grid-template-columns:1fr 1fr;}
+  }
+  /* 3 カラム(一覧・成績・動画)は一覧の判定列が読める幅だけ。それ未満は 2 カラムで、動画を下へ */
+  @media(min-width:1860px){
+    .main-cols{grid-template-columns:minmax(0,1fr) 780px;}
+  }
+  @media(max-width:1859px){
+    #venue-live{margin:4px auto 10px;}
+  }
+  /* タブレット横〜小さいノート: 一覧を広めに、場の情報の列を狭める */
+  @media(min-width:900px) and (max-width:1199px){
+    .pipe-in{padding-left:24px;padding-right:24px;}
+    .pipe-in .feed-cols{grid-template-columns:minmax(0,3fr) minmax(0,2fr);}
+    .pipe-cols{grid-template-columns:260px minmax(0,1fr);}
+    #venue-info .v-bigno{font-size:84px;}
+    #venue-info .v-name{font-size:26px;}
   }
   #slump{padding:10px 8px 8px 12px;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;}
   .sg-blk{flex:1;min-height:0;display:flex;flex-direction:column;}
@@ -2576,7 +2592,9 @@ function renderWorklog(nsec){
     });
   }
   lastAct=act;
-  var slots=[[32,190],[32,395],[32,600],[W-436,190],[W-436,395],[W-436,600]];
+  var slEl=document.getElementById("syslamps"),ly=190;
+  if(slEl){var slB=slEl.getBoundingClientRect().bottom;if(slB>0)ly=Math.max(190,Math.round(slB)+14);}
+  var slots=[[32,ly],[32,ly+205],[32,ly+410],[W-436,190],[W-436,395],[W-436,600]];
   WL_LINKS=[];
   Array.prototype.forEach.call(el.children,function(w,i){
     var a=act[i],sl=wlSlotMap[a.wid]||0;

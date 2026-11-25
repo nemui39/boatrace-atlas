@@ -265,6 +265,56 @@ def adapt_seedavg10(d, admission=None):
 
 S2_LIVE = "/home/sub/s2_live_service/live"
 FINAL_FETCH_PER_RUN = 6
+NONBET_RESULT_FETCH_PER_RUN = 8  # 買っていないレースの結果を 1 回の実行で新しく取りに行く上限(取れた分は results/ にキャッシュ)
+
+
+def attach_nonbet_results(races, hd, rescache, nmin):
+    """買っていないレースにも 3 連単の結果の出目を付ける(2026-11-25)。表示のためだけで、損益・的中・合計には入れない。
+    締切 6 分後から取りに行く。キャッシュの無いレースへの取得は 1 回の実行で NONBET_RESULT_FETCH_PER_RUN まで。"""
+    budget = NONBET_RESULT_FETCH_PER_RUN
+    wins = {}
+    for r in races:
+        rid = r.get("id")
+        if r.get("bets") or r.get("win") or not r.get("deadline") or not rid:
+            continue
+        if r.get("cancel") or r.get("verdict") == "race_cancelled":
+            continue
+        if rid not in wins:
+            wins[rid] = None
+            try:
+                h, m = r["deadline"].split(":")
+                if nmin < int(h) * 60 + int(m) + 6:
+                    continue
+            except ValueError:
+                continue
+            try:
+                _, jcd, rno = rid.split("_")
+            except ValueError:
+                continue
+            f = rescache / f"venue_{jcd}_race_{int(rno):02d}_raceresult.json"
+            rr = None
+            if f.exists():
+                try:
+                    rr = json.load(open(f))
+                except json.JSONDecodeError:
+                    rr = None
+            if rr is None:
+                if budget <= 0:
+                    continue
+                budget -= 1
+                fetch_result(hd, jcd, rno, rescache)
+                try:
+                    rr = json.load(open(f)) if f.exists() else None
+                except json.JSONDecodeError:
+                    rr = None
+            try:
+                win = rr["maindata"]["infolist3t"][0]["winno"]
+            except (KeyError, IndexError, TypeError):
+                win = None
+            if win and re.fullmatch(r"[1-6]-[1-6]-[1-6]", str(win)):
+                wins[rid] = win
+        if wins[rid]:
+            r["win"] = wins[rid]
 
 
 def attach_a2(day, hd, races, now):
@@ -927,6 +977,7 @@ def main():
 
     races.extend(missing_race_rows(races, sched, day, engines, receipts, now))
     races.sort(key=lambda r: (r["deadline"] or "99:99", r["id"], r["eng"]))
+    attach_nonbet_results(races, hd, rescache, nmin)
     expect = attach_a2(day, hd, races, datetime.datetime.now())
 
     # システムランプ: bet-server状態 / 朝バッチ / 推論の鮮度

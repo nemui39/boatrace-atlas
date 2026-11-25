@@ -19,6 +19,12 @@
     color-scheme:dark;
   }
   *{box-sizing:border-box;}
+  /* スクロールバーは細く、暗い画面に馴染む色に(標準の太いバーが LIVE OPS の右端で目立つため) */
+  *{scrollbar-width:thin;scrollbar-color:var(--cyan-deep) transparent;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--cyan-deep);border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{background:#1d5675;}
   html,body{margin:0;padding:0;height:100%;}
   body{
     background:var(--bg);
